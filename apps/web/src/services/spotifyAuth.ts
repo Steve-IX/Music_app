@@ -32,18 +32,18 @@ class SpotifyAuthService {
       clientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
       redirectUri,
       scopes: [
-        'user-read-private',
+        'streaming',
         'user-read-email',
+        'user-read-private',
         'user-read-playback-state',
         'user-modify-playback-state',
         'user-read-currently-playing',
-        'streaming',
+        'app-remote-control',
         'playlist-read-private',
         'playlist-read-collaborative',
         'user-library-read',
         'user-top-read',
-        'user-read-recently-played',
-        'web-playback-sdk'
+        'user-read-recently-played'
       ]
     };
 

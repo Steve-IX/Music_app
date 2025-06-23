@@ -26,6 +26,5 @@
       "src": "/(.*)",
       "dest": "/apps/web/dist/index.html"
     }
-  ],
-  "root": "apps/web"
+  ]
 } 

@@ -40,6 +40,9 @@
     .error {
       color: #ff5252;
     }
+    .success {
+      color: #1DB954;
+    }
   </style>
 </head>
 <body>
@@ -56,19 +59,29 @@
       messageEl.classList.add('error');
     }
 
-    // Function to handle successful authentication
-    function handleSuccess() {
-      // Close this window if it's a popup
-      if (window.opener) {
-        window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
-        window.close();
-      } else {
-        // Redirect back to the main app
-        window.location.href = '/';
-      }
+    // Function to show success message
+    function showSuccess(message) {
+      document.querySelector('.spinner').style.display = 'none';
+      const messageEl = document.querySelector('.message');
+      messageEl.textContent = message;
+      messageEl.classList.add('success');
     }
 
-    // Check for errors
+    // Function to handle successful authentication
+    function handleSuccess(code) {
+      // Store the code in localStorage for better persistence
+      localStorage.setItem('spotify_auth_code', code);
+      localStorage.setItem('spotify_auth_timestamp', Date.now().toString());
+      
+      showSuccess('Authentication successful! Redirecting...');
+      
+      // Redirect back to the main app with success parameter
+      setTimeout(() => {
+        window.location.href = '/?spotify_auth=success';
+      }, 1000);
+    }
+
+    // Check for errors and handle authentication
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
     const code = urlParams.get('code');
@@ -76,12 +89,17 @@
 
     if (error) {
       showError(`Authentication failed: ${error}`);
+      setTimeout(() => {
+        window.location.href = '/?spotify_auth=error&error=' + encodeURIComponent(error);
+      }, 3000);
     } else if (!code) {
       showError('No authorization code received');
+      setTimeout(() => {
+        window.location.href = '/?spotify_auth=error&error=no_code';
+      }, 3000);
     } else {
-      // Store the code temporarily
-      sessionStorage.setItem('spotify_auth_code', code);
-      handleSuccess();
+      // Successfully received authorization code
+      handleSuccess(code);
     }
   </script>
 </body>

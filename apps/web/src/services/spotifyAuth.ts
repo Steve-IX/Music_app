@@ -93,6 +93,22 @@ class SpotifyAuthService {
     try {
       console.log('🔐 Initializing Spotify auth service...');
       
+      // Check for auth result in URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const authResult = urlParams.get('spotify_auth');
+      
+      if (authResult === 'success') {
+        console.log('✅ Spotify authentication successful, checking for code...');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (authResult === 'error') {
+        const error = urlParams.get('error');
+        console.error('❌ Spotify authentication failed:', error);
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return false;
+      }
+      
       // Check if we have stored tokens first
       const storedTokens = this.getStoredTokens();
       if (storedTokens && this.isTokenValid()) {
@@ -103,14 +119,27 @@ class SpotifyAuthService {
       }
 
       // Check if we have a pending authorization code (from callback)
-      const authCode = sessionStorage.getItem('spotify_auth_code');
-      if (authCode) {
-        console.log('🔄 Found pending authorization code, exchanging for tokens...');
-        sessionStorage.removeItem('spotify_auth_code'); // Clear it immediately
+      const authCode = localStorage.getItem('spotify_auth_code');
+      const authTimestamp = localStorage.getItem('spotify_auth_timestamp');
+      
+      if (authCode && authTimestamp) {
+        const timestamp = parseInt(authTimestamp);
+        const now = Date.now();
         
-        const success = await this.exchangeCodeForTokens(authCode);
-        if (success) {
-          return true;
+        // Check if the code is not too old (5 minutes)
+        if (now - timestamp < 5 * 60 * 1000) {
+          console.log('🔄 Found recent authorization code, exchanging for tokens...');
+          localStorage.removeItem('spotify_auth_code'); // Clear it immediately
+          localStorage.removeItem('spotify_auth_timestamp');
+          
+          const success = await this.exchangeCodeForTokens(authCode);
+          if (success) {
+            return true;
+          }
+        } else {
+          console.log('⚠️ Authorization code is too old, clearing...');
+          localStorage.removeItem('spotify_auth_code');
+          localStorage.removeItem('spotify_auth_timestamp');
         }
       }
 
@@ -132,10 +161,34 @@ class SpotifyAuthService {
     }
   }
 
+  // Validate configuration
+  validateConfig(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!this.config.clientId) {
+      errors.push('Spotify Client ID is not configured (VITE_SPOTIFY_CLIENT_ID)');
+    }
+    
+    if (!this.config.clientSecret) {
+      errors.push('Spotify Client Secret is not configured (VITE_SPOTIFY_CLIENT_SECRET)');
+    }
+    
+    if (!this.config.redirectUri) {
+      errors.push('Spotify Redirect URI is not configured');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
   // Start OAuth flow
   startAuth(): void {
-    if (!this.config.clientId) {
-      console.error('❌ Spotify Client ID not configured');
+    const configValidation = this.validateConfig();
+    if (!configValidation.isValid) {
+      console.error('❌ Spotify configuration errors:', configValidation.errors);
+      alert('Spotify is not properly configured. Please check the environment variables.');
       return;
     }
 
@@ -148,8 +201,8 @@ class SpotifyAuthService {
     authUrl.searchParams.append('state', state);
     authUrl.searchParams.append('show_dialog', 'true');
 
-    // Store the current URL to return to after auth
-    sessionStorage.setItem('spotify_auth_return_url', window.location.href);
+    console.log('🔐 Starting Spotify OAuth flow...');
+    console.log('🔗 Auth URL:', authUrl.toString());
     
     // Redirect to Spotify auth
     window.location.href = authUrl.toString();
@@ -274,8 +327,9 @@ class SpotifyAuthService {
     try {
       localStorage.setItem('spotify_tokens', JSON.stringify(tokens));
       localStorage.setItem('spotify_token_expiry', this.tokenExpiry.toString());
+      console.log('💾 Spotify tokens stored successfully');
     } catch (error) {
-      console.error('❌ Error storing tokens:', error);
+      console.error('❌ Error storing Spotify tokens:', error);
     }
   }
 
@@ -289,12 +343,20 @@ class SpotifyAuthService {
         return null;
       }
 
-      const tokens = JSON.parse(tokensStr);
-      this.tokenExpiry = parseInt(expiryStr);
+      const tokens: SpotifyTokens = JSON.parse(tokensStr);
+      const expiry = parseInt(expiryStr);
       
+      // Check if tokens are expired
+      if (Date.now() > expiry) {
+        console.log('⚠️ Stored Spotify tokens are expired');
+        this.clearTokens();
+        return null;
+      }
+
       return tokens;
     } catch (error) {
-      console.error('❌ Error retrieving stored tokens:', error);
+      console.error('❌ Error reading stored Spotify tokens:', error);
+      this.clearTokens();
       return null;
     }
   }
@@ -304,12 +366,12 @@ class SpotifyAuthService {
     try {
       localStorage.removeItem('spotify_tokens');
       localStorage.removeItem('spotify_token_expiry');
+      localStorage.removeItem('spotify_auth_code');
+      localStorage.removeItem('spotify_auth_timestamp');
+      console.log('🗑️ Spotify tokens cleared');
     } catch (error) {
-      console.error('❌ Error clearing tokens:', error);
+      console.error('❌ Error clearing Spotify tokens:', error);
     }
-    
-    this.tokens = null;
-    this.tokenExpiry = 0;
   }
 
   // Generate random state for OAuth

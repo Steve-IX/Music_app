@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useMusic } from '../context/MusicContext';
 import audioPlayer from '../services/audioPlayer';
+import toast from 'react-hot-toast';
 
 // Professional SVG Icons
 const Icons = {
@@ -83,7 +84,7 @@ const Icons = {
 };
 
 const MusicPlayer: React.FC = () => {
-  const { state, dispatch } = useMusic();
+  const { state, dispatch, getQueueInfo } = useMusic();
   const { currentTrack, isPlaying, currentTime, volume, repeat, shuffle, loading, error } = state;
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeBarRef = useRef<HTMLDivElement>(null);
@@ -192,6 +193,14 @@ const MusicPlayer: React.FC = () => {
   const handleQualityToggle = () => {
     // Toggle audio quality
     showToast('Audio quality toggle (coming soon)', 'info');
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    toast(message, {
+      duration: 2000,
+      position: 'bottom-center',
+      className: `toast-${type}`
+    });
   };
 
   // Sync with audio player state

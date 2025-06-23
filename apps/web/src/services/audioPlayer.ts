@@ -341,17 +341,9 @@ class AudioPlayerService {
         try {
           const videoId = isYouTubeVideoId ? url : this.extractVideoId(url);
           if (videoId) {
-            // Use the YouTube player service
-            import('./youtubePlayer').then(({ default: YouTubePlayerService }) => {
-              const youtubePlayer = new YouTubePlayerService();
-              youtubePlayer.loadVideo(videoId);
+            this.loadYouTubeTrack(url);
               this.setState({ loading: false });
               resolve();
-            }).catch((error) => {
-              console.error('❌ Failed to load YouTube player:', error);
-              this.setState({ loading: false, error: 'Failed to load YouTube player' });
-              resolve();
-            });
           } else {
             throw new Error('Invalid YouTube URL');
           }
@@ -454,6 +446,45 @@ class AudioPlayerService {
     }
     
     return null;
+  }
+
+  private loadYouTubeTrack(url: string): void {
+    try {
+      const videoId = this.extractVideoId(url);
+      if (videoId) {
+        this.currentSource = 'youtube';
+        youtubePlayer.setCallbacks({
+          onPlay: () => {
+            this.setState({ isPlaying: true, loading: false });
+            this.callbacks.onPlay?.();
+          },
+          onPause: () => {
+            this.setState({ isPlaying: false });
+            this.callbacks.onPause?.();
+          },
+          onEnd: () => {
+            this.setState({ isPlaying: false });
+            this.callbacks.onEnd?.();
+          },
+          onLoad: () => {
+            this.setState({ loading: false });
+            this.callbacks.onLoad?.();
+          },
+          onLoadError: (error) => {
+            this.setState({ loading: false, error: 'Failed to load YouTube video' });
+            this.callbacks.onLoadError?.(error);
+          },
+          onTimeUpdate: (time) => {
+            this.setState({ currentTime: time });
+            this.callbacks.onTimeUpdate?.(time);
+          }
+        });
+        youtubePlayer.loadVideo(videoId);
+      }
+    } catch (error) {
+      console.error('Failed to load YouTube track:', error);
+      this.setState({ error: 'Failed to load YouTube track' });
+    }
   }
 
   private loadSimulationMode(trackId: string, duration: number): void {

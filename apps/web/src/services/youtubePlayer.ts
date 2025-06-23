@@ -38,10 +38,10 @@ class YouTubePlayerService {
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    volume: 0.7,
+    volume: 100,
     loading: false,
     error: null,
-    videoId: null,
+    videoId: null
   };
   private isApiReady = false;
   private pendingLoad: string | null = null;
@@ -376,6 +376,6 @@ class YouTubePlayerService {
   }
 }
 
-// Export singleton instance
-export const youtubePlayer = new YouTubePlayerService();
+// Export a singleton instance
+const youtubePlayer = new YouTubePlayerService();
 export default youtubePlayer; 

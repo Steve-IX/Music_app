@@ -4,15 +4,6 @@
   "buildCommand": "cd apps/web && npm install && npm run build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "npm install",
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/node",
-      "config": {
-        "nodeVersion": "18.x"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "^/assets/(.*)",

@@ -47,79 +47,34 @@ export interface SearchResult {
   total: number;
 }
 
+// Helper function to get API base URL
+const getApiBaseUrl = () => {
+  // In development, use localhost
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3000/api';
+  }
+  // In production, use the deployed URL
+  return '/api';
+};
+
 // Spotify API Service
 class SpotifyService {
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: 'https://api.spotify.com/v1',
+      baseURL: getApiBaseUrl(),
     });
-  }
-
-  private async getAccessToken(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-    const clientSecret = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
-
-    console.log('Spotify API credentials check:', {
-      hasClientId: !!clientId,
-      hasClientSecret: !!clientSecret,
-      clientIdLength: clientId?.length || 0
-    });
-
-    if (!clientId || !clientSecret) {
-      console.warn('Spotify credentials not configured. Please check your .env.local file.');
-      throw new Error('Spotify credentials not configured');
-    }
-
-    try {
-      console.log('Requesting Spotify access token...');
-      const response = await axios.post(
-        'https://accounts.spotify.com/api/token',
-        'grant_type=client_credentials',
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-          },
-        }
-      );
-
-      this.accessToken = response.data.access_token;
-      this.tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000; // 1 minute buffer
-      
-      console.log('Spotify access token obtained successfully');
-      return this.accessToken;
-    } catch (error: any) {
-      console.error('Failed to get Spotify access token:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      throw error;
-    }
   }
 
   async search(query: string, limit: number = 20): Promise<Partial<SearchResult>> {
     try {
-      const token = await this.getAccessToken();
+      console.log('🎵 Searching Spotify via proxy...');
       
-      // Enhanced search with market parameter for better preview URL availability
-      const response = await this.api.get('/search', {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await this.api.get('/spotify', {
         params: {
-          q: query,
-          type: 'track,artist,album',
+          query,
           limit,
-          market: 'US', // Add market parameter for better preview URL availability
-          include_external: 'audio', // Include external audio URLs
         },
       });
 
@@ -198,106 +153,50 @@ class SpotifyService {
         tracksWithNoAudio: tracksWithNoAudio.length,
         popularTracks: popularTracks.length,
         previewPercentage: tracks.length > 0 ? Math.round((tracksWithPreviews.length / tracks.length) * 100) : 0,
-        webUrlPercentage: tracks.length > 0 ? Math.round((tracksWithWebUrls.length / tracks.length) * 100) : 0,
-        sampleTrackWithPreview: tracksWithPreviews[0]?.title,
-        sampleTrackWithWebUrl: tracksWithWebUrls[0]?.title,
-        sampleTrackWithoutAudio: tracksWithNoAudio[0]?.title,
-        averagePopularity: tracks.length > 0 ? 
-          Math.round(tracks.reduce((sum, t) => sum + (t.popularity || 0), 0) / tracks.length) : 0
       });
 
-      // Enhanced helpful messages about Spotify preview availability
-      if (tracks.length > 0) {
-        const previewPercent = Math.round((tracksWithPreviews.length / tracks.length) * 100);
-        const webUrlPercent = Math.round((tracksWithWebUrls.length / tracks.length) * 100);
-        
-        console.log(`ℹ️ Spotify Preview Info: ${previewPercent}% of tracks have 30s previews, ${webUrlPercent}% can open in Spotify app`);
-        
-        if (previewPercent < 50) {
-          console.log('💡 Tip: Many Spotify tracks don\'t have preview URLs. This is normal - use the "Connect Spotify" button for full playback!');
-          console.log('💡 Tip: Preview availability depends on region, licensing, and track age. Newer/popular tracks are more likely to have previews.');
-        }
-        
-        if (popularTracks.length > 0) {
-          console.log(`🎯 Popular tracks found: ${popularTracks.length} tracks with popularity > 70`);
-        }
-      }
-
-      const artists: Artist[] = response.data.artists?.items?.map((item: any) => ({
-        id: `spotify:${item.id}`,
-        name: item.name,
-        image: item.images?.[0]?.url,
-        genres: item.genres,
-        followers: item.followers?.total,
-        popularity: item.popularity,
-        source: 'spotify',
-      })) || [];
-
-      const albums: Album[] = response.data.albums?.items?.map((item: any) => ({
-        id: `spotify:${item.id}`,
-        title: item.name,
-        artist: item.artists?.[0]?.name || 'Unknown Artist',
-        image: item.images?.[0]?.url || '',
-        releaseDate: item.release_date,
-        trackCount: item.total_tracks,
-        source: 'spotify',
-      })) || [];
-
-      return { tracks, artists, albums };
+      return { tracks };
     } catch (error: any) {
-      console.error('Spotify search error:', error);
-      
-      // Enhanced error handling with specific error messages
-      if (error.response?.status === 401) {
-        console.error('❌ Spotify authentication expired - need to refresh token');
-      } else if (error.response?.status === 429) {
-        console.error('❌ Spotify rate limit exceeded - too many requests');
-      } else if (error.response?.status >= 500) {
-        console.error('❌ Spotify server error - service temporarily unavailable');
-      }
-      
-      return { tracks: [], artists: [], albums: [] };
+      console.error('Spotify search error:', error.response?.data || error.message);
+      return { tracks: [] };
     }
   }
 }
 
-// Jamendo API Service (Creative Commons music)
+// Jamendo API Service
 class JamendoService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: 'https://api.jamendo.com/v3.0',
+      baseURL: getApiBaseUrl(),
     });
   }
 
   async search(query: string, limit: number = 20): Promise<Partial<SearchResult>> {
     try {
+      console.log('🎵 Searching Jamendo via proxy...');
+      
       const [tracksResponse, artistsResponse, albumsResponse] = await Promise.all([
-        this.api.get('/tracks/', {
+        this.api.get('/jamendo', {
           params: {
-            client_id: import.meta.env.VITE_JAMENDO_CLIENT_ID,
-            format: 'json',
+            type: 'tracks',
+            query,
             limit,
-            search: query,
-            include: 'musicinfo',
-            audioformat: 'mp3',
           },
         }),
-        this.api.get('/artists/', {
+        this.api.get('/jamendo', {
           params: {
-            client_id: import.meta.env.VITE_JAMENDO_CLIENT_ID,
-            format: 'json',
+            type: 'artists',
+            query,
             limit,
-            search: query,
           },
         }),
-        this.api.get('/albums/', {
+        this.api.get('/jamendo', {
           params: {
-            client_id: import.meta.env.VITE_JAMENDO_CLIENT_ID,
-            format: 'json',
+            type: 'albums',
+            query,
             limit,
-            search: query,
           },
         }),
       ]);
@@ -332,6 +231,7 @@ class JamendoService {
         source: 'jamendo',
       })) || [];
 
+      console.log(`📊 Jamendo search results: ${tracks.length} tracks, ${artists.length} artists, ${albums.length} albums`);
       return { tracks, artists, albums };
     } catch (error) {
       console.error('Jamendo search error:', error);
@@ -394,31 +294,19 @@ class YouTubeService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: 'https://www.googleapis.com/youtube/v3',
+      baseURL: getApiBaseUrl(),
     });
   }
 
   async search(query: string, limit: number = 20): Promise<Partial<SearchResult>> {
     try {
-      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-      if (!apiKey) {
-        console.warn('YouTube API key not configured');
-        return { tracks: [] };
-      }
-
-      const response = await this.api.get('/search', {
+      console.log('🎵 Searching YouTube via proxy...');
+      
+      const response = await this.api.get('/youtube', {
         params: {
-          part: 'snippet',
-          q: `${query} music`,
-          type: 'video',
-          videoCategoryId: '10', // Music category
-          maxResults: limit,
-          key: apiKey,
-          relevanceLanguage: 'en',
-          regionCode: 'US',
-          videoEmbeddable: 'true',
-          videoSyndicated: 'true'
-        }
+          query,
+          limit,
+        },
       });
 
       const tracks: Track[] = response.data.items.map((item: any) => {
@@ -443,7 +331,7 @@ class YouTubeService {
         };
       });
 
-      console.log(`YouTube search results: ${tracks.length} tracks found`);
+      console.log(`📊 YouTube search results: ${tracks.length} tracks found`);
       return { tracks };
     } catch (error) {
       console.error('YouTube search failed:', error);
@@ -463,11 +351,9 @@ class YouTubeService {
     return hours * 3600 + minutes * 60 + seconds;
   }
 
-  // Get audio stream URL for YouTube video
   async getAudioStream(videoId: string): Promise<string | null> {
     try {
-      // For now, return the YouTube video URL
-      // In a production app, you'd use youtube-dl or similar to extract audio streams
+      // For YouTube, we return the video URL since we'll use the YouTube player
       return `https://www.youtube.com/watch?v=${videoId}`;
     } catch (error) {
       console.error('Failed to get YouTube audio stream:', error);
@@ -491,105 +377,119 @@ class MusicApiService {
   }
 
   async search(query: string, limit: number = 20): Promise<SearchResult> {
-    const searchPromises = [
-      this.spotify.search(query, limit),
-      this.jamendo.search(query, limit),
-      this.youtube.search(query, limit),
-      // SoundCloud disabled - API forms closed
-      // this.soundcloud.search(query, limit),
-    ];
-
+    console.log(`🔍 Searching for: "${query}" across all APIs...`);
+    
     try {
-      const results = await Promise.allSettled(searchPromises);
+      const [spotifyResult, jamendoResult, youtubeResult] = await Promise.allSettled([
+        this.spotify.search(query, limit),
+        this.jamendo.search(query, limit),
+        this.youtube.search(query, limit),
+      ]);
+
+      const allTracks: Track[] = [];
+      const allArtists: Artist[] = [];
+      const allAlbums: Album[] = [];
+
+      // Process Spotify results
+      if (spotifyResult.status === 'fulfilled') {
+        allTracks.push(...(spotifyResult.value.tracks || []));
+        allArtists.push(...(spotifyResult.value.artists || []));
+        allAlbums.push(...(spotifyResult.value.albums || []));
+        console.log(`✅ Spotify: ${spotifyResult.value.tracks?.length || 0} tracks`);
+      } else {
+        console.error('❌ Spotify search failed:', spotifyResult.reason);
+      }
+
+      // Process Jamendo results
+      if (jamendoResult.status === 'fulfilled') {
+        allTracks.push(...(jamendoResult.value.tracks || []));
+        allArtists.push(...(jamendoResult.value.artists || []));
+        allAlbums.push(...(jamendoResult.value.albums || []));
+        console.log(`✅ Jamendo: ${jamendoResult.value.tracks?.length || 0} tracks`);
+      } else {
+        console.error('❌ Jamendo search failed:', jamendoResult.reason);
+      }
+
+      // Process YouTube results
+      if (youtubeResult.status === 'fulfilled') {
+        allTracks.push(...(youtubeResult.value.tracks || []));
+        console.log(`✅ YouTube: ${youtubeResult.value.tracks?.length || 0} tracks`);
+      } else {
+        console.error('❌ YouTube search failed:', youtubeResult.reason);
+      }
+
+      console.log(`🎉 Total results: ${allTracks.length} tracks, ${allArtists.length} artists, ${allAlbums.length} albums`);
       
-      const combinedResults = results.reduce(
-        (acc, result) => {
-          if (result.status === 'fulfilled' && result.value) {
-            acc.tracks.push(...(result.value.tracks || []));
-            acc.artists.push(...(result.value.artists || []));
-            acc.albums.push(...(result.value.albums || []));
-          }
-          return acc;
-        },
-        { tracks: [] as Track[], artists: [] as Artist[], albums: [] as Album[] }
-      );
-
-      // Sort by relevance/popularity
-      combinedResults.tracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-      combinedResults.artists.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-
       return {
-        ...combinedResults,
-        total: combinedResults.tracks.length + combinedResults.artists.length + combinedResults.albums.length,
+        tracks: allTracks,
+        artists: allArtists,
+        albums: allAlbums,
+        total: allTracks.length + allArtists.length + allAlbums.length,
       };
     } catch (error) {
-      console.error('Music search error:', error);
+      console.error('Search failed:', error);
       return { tracks: [], artists: [], albums: [], total: 0 };
     }
   }
 
   async getTrackById(id: string): Promise<Track | null> {
-    const [source, trackId] = id.split(':');
-    
     try {
+      // Extract source and ID
+      const [source, trackId] = id.split(':');
+      
       switch (source) {
         case 'spotify':
-          // Implement Spotify track details fetch
-          break;
+          const spotifyResult = await this.spotify.search(trackId, 1);
+          return spotifyResult.tracks?.[0] || null;
         case 'jamendo':
-          // Implement Jamendo track details fetch
-          break;
-        case 'soundcloud':
-          // Implement SoundCloud track details fetch
-          break;
+          const jamendoResult = await this.jamendo.search(trackId, 1);
+          return jamendoResult.tracks?.[0] || null;
+        case 'youtube':
+          const youtubeResult = await this.youtube.search(trackId, 1);
+          return youtubeResult.tracks?.[0] || null;
+        default:
+          return null;
       }
     } catch (error) {
-      console.error(`Failed to get track ${id}:`, error);
+      console.error('Failed to get track by ID:', error);
+      return null;
     }
-    
-    return null;
   }
 
-  // Get trending/popular tracks
   async getTrending(limit: number = 50): Promise<Track[]> {
     try {
-      const [spotifyResults, jamendoResults, youtubeResults] = await Promise.allSettled([
-        this.spotify.search('year:2024', limit),
+      console.log('🔥 Fetching trending tracks...');
+      
+      const [jamendoTrending, youtubeTrending] = await Promise.allSettled([
         this.jamendo.search('popular', limit),
-        this.youtube.search('popular music 2024', limit),
+        this.youtube.search('trending music', limit),
       ]);
 
-      const tracks: Track[] = [];
-      
-      if (spotifyResults.status === 'fulfilled') {
-        tracks.push(...(spotifyResults.value.tracks || []));
-      }
-      
-      if (jamendoResults.status === 'fulfilled') {
-        tracks.push(...(jamendoResults.value.tracks || []));
+      const trendingTracks: Track[] = [];
+
+      if (jamendoTrending.status === 'fulfilled') {
+        trendingTracks.push(...(jamendoTrending.value.tracks || []));
+        console.log(`✅ Jamendo trending: ${jamendoTrending.value.tracks?.length || 0} tracks`);
       }
 
-      if (youtubeResults.status === 'fulfilled') {
-        tracks.push(...(youtubeResults.value.tracks || []));
+      if (youtubeTrending.status === 'fulfilled') {
+        trendingTracks.push(...(youtubeTrending.value.tracks || []));
+        console.log(`✅ YouTube trending: ${youtubeTrending.value.tracks?.length || 0} tracks`);
       }
 
-      return tracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+      console.log(`🔥 Total trending tracks: ${trendingTracks.length}`);
+      return trendingTracks;
     } catch (error) {
       console.error('Failed to get trending tracks:', error);
       return [];
     }
   }
 
-  // Get recommendations based on a track
   async getRecommendations(trackId: string, limit: number = 20): Promise<Track[]> {
-    // This would typically use the track's metadata to find similar tracks
-    // For now, we'll use the artist name as a search query
     try {
-      const track = await this.getTrackById(trackId);
-      if (!track) return [];
-
-      const results = await this.search(`artist:${track.artist}`, limit);
-      return results.tracks.filter(t => t.id !== trackId);
+      // For now, return trending tracks as recommendations
+      // In a real app, you'd use the track ID to get specific recommendations
+      return await this.getTrending(limit);
     } catch (error) {
       console.error('Failed to get recommendations:', error);
       return [];
@@ -597,6 +497,5 @@ class MusicApiService {
   }
 }
 
-// Export singleton instance
-export const musicApi = new MusicApiService();
-export default musicApi; 
+export default MusicApiService;
+export type { Track, Artist, Album, SearchResult }; 

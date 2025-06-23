@@ -595,15 +595,34 @@ export const MusicProvider: React.FC<MusicProviderProps> = ({ children }) => {
 
   const getTrending = async () => {
     try {
-      console.log('Getting trending tracks...');
-      const trending = await musicApi.getTrending();
-      console.log('Trending results:', {
-        count: trending.length,
-        withPreviews: trending.filter(t => t.previewUrl).length
-      });
-      dispatch({ type: 'SET_TRENDING', payload: trending });
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      // Get trending tracks from all services
+      const spotifyTracks = await musicApi.spotify.getSpotifyTrending();
+      const jamendoTracks = await musicApi.jamendo.getJamendoTrending();
+      const youtubeTracks = await musicApi.youtube.getYouTubeTrending();
+
+      // Combine and sort tracks
+      const allTracks = [...spotifyTracks, ...jamendoTracks, ...youtubeTracks]
+        .sort((a, b) => {
+          // Prioritize tracks with audio
+          if (a.hasAudio && !b.hasAudio) return -1;
+          if (!a.hasAudio && b.hasAudio) return 1;
+          
+          // Then by popularity if available
+          if (a.popularity && b.popularity) {
+            return b.popularity - a.popularity;
+          }
+          
+          return 0;
+        });
+
+      dispatch({ type: 'SET_TRENDING', payload: allTracks });
     } catch (error) {
-      console.error('Failed to get trending:', error);
+      console.error('Error fetching trending tracks:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch trending tracks' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 

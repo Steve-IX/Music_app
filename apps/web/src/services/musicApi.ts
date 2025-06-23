@@ -18,6 +18,7 @@ export interface Track {
   license?: string;
   audioType?: 'preview' | 'web' | 'none';
   hasAudio?: boolean;
+  hasPreview?: boolean;
 }
 
 export interface Artist {
@@ -134,6 +135,39 @@ class SpotifyService {
       return { tracks: [], artists: [], albums: [] };
     }
   }
+
+  async getSpotifyTrending(): Promise<Track[]> {
+    try {
+      const response = await this.api.get('/browse/featured-playlists', {
+        params: { limit: 20, country: 'US' }
+      });
+      
+      const tracks = response.data.playlists.items.flatMap((playlist: any) => {
+        return playlist.tracks.items.map((track: any) => ({
+          id: track.id,
+          title: track.name,
+          artist: track.artists[0].name,
+          album: track.album.name,
+          duration: track.duration_ms / 1000,
+          url: track.external_urls.spotify,
+          previewUrl: track.preview_url,
+          coverUrl: track.album.images[0]?.url || '',
+          source: 'spotify',
+          explicit: track.explicit,
+          popularity: track.popularity,
+          genres: [],
+          hasPreview: !!track.preview_url,
+          hasAudio: true,
+          audioType: track.preview_url ? 'preview' : 'none'
+        }));
+      });
+
+      return tracks;
+    } catch (error) {
+      console.error('Error fetching Spotify trending:', error);
+      return [];
+    }
+  }
 }
 
 // Jamendo Service
@@ -181,6 +215,37 @@ class JamendoService {
     } catch (error) {
       console.error('Jamendo search failed:', error);
       return { tracks: [] };
+    }
+  }
+
+  async getJamendoTrending(): Promise<Track[]> {
+    try {
+      const response = await this.api.get('/tracks', {
+        params: {
+          featured: true,
+          limit: 20,
+          include: 'musicinfo'
+        }
+      });
+
+      return response.data.results.map((track: any) => ({
+        id: `jamendo:${track.id}`,
+        title: track.name,
+        artist: track.artist_name,
+        album: track.album_name,
+        duration: track.duration,
+        url: track.shareurl,
+        previewUrl: track.audio,
+        coverUrl: track.image,
+        source: 'jamendo',
+        genres: track.tags,
+        hasPreview: true,
+        hasAudio: true,
+        audioType: 'full'
+      }));
+    } catch (error) {
+      console.error('Error fetching Jamendo trending:', error);
+      return [];
     }
   }
 }
@@ -283,14 +348,44 @@ class YouTubeService {
       return null;
     }
   }
+
+  async getYouTubeTrending(): Promise<Track[]> {
+    try {
+      const response = await this.api.get('', {
+        params: {
+          part: 'snippet',
+          chart: 'mostPopular',
+          videoCategoryId: '10', // Music category
+          maxResults: 20
+        }
+      });
+
+      return response.data.items.map((item: any) => ({
+        id: `youtube:${item.id}`,
+        title: item.snippet.title,
+        artist: item.snippet.channelTitle,
+        album: 'YouTube Music',
+        duration: 0, // Duration needs to be fetched separately
+        url: `https://www.youtube.com/watch?v=${item.id}`,
+        coverUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
+        source: 'youtube',
+        hasPreview: false,
+        hasAudio: true,
+        audioType: 'web'
+      }));
+    } catch (error) {
+      console.error('Error fetching YouTube trending:', error);
+      return [];
+    }
+  }
 }
 
 // Main Music API Service
 class MusicApiService {
-  private spotify: SpotifyService;
-  private jamendo: JamendoService;
-  private soundcloud: SoundCloudService;
-  private youtube: YouTubeService;
+  public spotify: SpotifyService;
+  public jamendo: JamendoService;
+  public soundcloud: SoundCloudService;
+  public youtube: YouTubeService;
 
   constructor() {
     this.spotify = new SpotifyService();
@@ -386,62 +481,41 @@ class MusicApiService {
     try {
       // Fetch trending tracks from all sources in parallel
       const [spotifyTracks, jamendoTracks, youtubeTracks] = await Promise.allSettled([
-        this.getSpotifyTrending(),
-        this.getJamendoTrending(),
-        this.getYouTubeTrending()
+        this.spotify.getSpotifyTrending(),
+        this.jamendo.getJamendoTrending(),
+        this.youtube.getYouTubeTrending()
       ]);
 
       // Handle Spotify tracks
       if (spotifyTracks.status === 'fulfilled' && spotifyTracks.value) {
-        tracks.push(...spotifyTracks.value.map(track => ({
-          ...track,
-          source: 'spotify',
-          audioUrl: track.preview_url || '',
-          hasPreview: !!track.preview_url
-        })));
+        tracks.push(...spotifyTracks.value);
       }
 
       // Handle Jamendo tracks
       if (jamendoTracks.status === 'fulfilled' && jamendoTracks.value) {
-        tracks.push(...jamendoTracks.value.map(track => ({
-          ...track,
-          source: 'jamendo',
-          hasPreview: true
-        })));
+        tracks.push(...jamendoTracks.value);
       }
 
       // Handle YouTube tracks
       if (youtubeTracks.status === 'fulfilled' && youtubeTracks.value) {
-        tracks.push(...youtubeTracks.value.map(track => ({
-          ...track,
-          source: 'youtube',
-          hasPreview: true
-        })));
+        tracks.push(...youtubeTracks.value);
       }
 
       // Sort tracks by availability and popularity
-      const sortedTracks = tracks.sort((a, b) => {
+      return tracks.sort((a, b) => {
         // Prioritize tracks with audio
-        if (a.hasPreview && !b.hasPreview) return -1;
-        if (!a.hasPreview && b.hasPreview) return 1;
-
+        if (a.hasAudio && !b.hasAudio) return -1;
+        if (!a.hasAudio && b.hasAudio) return 1;
+        
         // Then by popularity if available
-        const aPopularity = a.popularity || 0;
-        const bPopularity = b.popularity || 0;
-        if (aPopularity !== bPopularity) {
-          return bPopularity - aPopularity;
+        if (a.popularity && b.popularity) {
+          return b.popularity - a.popularity;
         }
-
-        // Then by source preference
-        const sourceOrder = { spotify: 3, youtube: 2, jamendo: 1 };
-        return (sourceOrder[b.source] || 0) - (sourceOrder[a.source] || 0);
+        
+        return 0;
       });
-
-      console.log('🔥 Total trending tracks:', sortedTracks.length);
-      return sortedTracks;
-
     } catch (error) {
-      console.error('❌ Error fetching trending tracks:', error);
+      console.error('Error fetching trending tracks:', error);
       return [];
     }
   }
@@ -458,7 +532,4 @@ class MusicApiService {
   }
 }
 
-// Create singleton instance
-const musicApi = new MusicApiService();
-
-export default musicApi; 
+export default new MusicApiService(); 

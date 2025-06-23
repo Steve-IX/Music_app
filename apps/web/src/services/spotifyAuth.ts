@@ -22,10 +22,22 @@ class SpotifyAuthService {
   private tokenExpiry: number = 0;
 
   constructor() {
+    // Determine the correct redirect URI based on environment
+    const getRedirectUri = () => {
+      // Check if we have an environment-specific redirect URI
+      const envRedirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
+      if (envRedirectUri) {
+        return envRedirectUri;
+      }
+      
+      // Fallback to dynamic construction
+      return `${window.location.origin}/spotify-callback`;
+    };
+
     this.config = {
       clientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
       clientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
-      redirectUri: `${window.location.origin}/spotify-callback`,
+      redirectUri: getRedirectUri(),
       scopes: [
         'user-read-private',
         'user-read-email',
@@ -40,6 +52,13 @@ class SpotifyAuthService {
         'user-read-recently-played'
       ]
     };
+
+    // Debug logging (remove in production)
+    console.log('🔐 Spotify Auth Config:', {
+      clientId: this.config.clientId ? '✅ Set' : '❌ Missing',
+      clientSecret: this.config.clientSecret ? '✅ Set' : '❌ Missing',
+      redirectUri: this.config.redirectUri
+    });
   }
 
   // Initialize authentication

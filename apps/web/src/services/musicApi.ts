@@ -346,7 +346,7 @@ class MusicApiService {
       // Process YouTube results
       if (youtubeResult.status === 'fulfilled' && youtubeResult.value.tracks?.length > 0) {
         const tracks = youtubeResult.value.tracks.filter(track => 
-          track.title && track.url && track.videoId
+          track.title && track.url && track.source === 'youtube'
         );
         allTracks.push(...tracks);
         console.log(`✅ YouTube: ${tracks.length} tracks`);
@@ -432,7 +432,7 @@ class MusicApiService {
 
       if (youtubeTrending.status === 'fulfilled' && youtubeTrending.value.tracks?.length > 0) {
         const tracks = youtubeTrending.value.tracks.filter(track => 
-          track.title && track.url && track.videoId
+          track.title && track.url && track.source === 'youtube'
         );
         trendingTracks.push(...tracks);
         console.log(`✅ YouTube trending: ${tracks.length} tracks`);

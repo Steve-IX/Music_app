@@ -28,6 +28,7 @@
     "build:packages": "npm run build --workspace=packages/ui-kit && npm run build --workspace=packages/shared",
     "build:services": "npm run build --workspaces --if-present",
     "build:apps": "npm run build --workspace=apps/web",
+    "vercel-build": "cd apps/web && npm install && npm run build",
     "test": "npm run test --workspaces --if-present",
     "test:unit": "jest",
     "test:integration": "npm run test:integration --workspaces --if-present",

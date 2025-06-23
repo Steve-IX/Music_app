@@ -1,3 +1,5 @@
+import axios, { AxiosResponse } from 'axios';
+
 // Spotify Authentication Service
 // Handles OAuth flow to get access tokens for Web Playback SDK
 
@@ -146,7 +148,7 @@ class SpotifyAuthService {
   // Exchange authorization code for tokens
   private async exchangeCodeForTokens(code: string): Promise<boolean> {
     try {
-      const response = await axios.post('https://accounts.spotify.com/api/token', 
+      const response: AxiosResponse<SpotifyTokens> = await axios.post('https://accounts.spotify.com/api/token', 
         new URLSearchParams({
           grant_type: 'authorization_code',
           code: code,
@@ -169,7 +171,7 @@ class SpotifyAuthService {
       
       return true;
     } catch (error) {
-      console.error('❌ Failed to exchange code for tokens:', error);
+      console.error('Failed to exchange code for tokens:', error);
       return false;
     }
   }

@@ -379,31 +379,69 @@ class MusicApiService {
     }
   }
 
-  async getTrending(limit: number = 50): Promise<Track[]> {
+  async getTrendingTracks(): Promise<Track[]> {
+    console.log('Getting trending tracks...');
+    const tracks: Track[] = [];
+
     try {
-      console.log('🔥 Fetching trending tracks...');
-      
-      const [jamendoTrending, youtubeTrending] = await Promise.allSettled([
-        this.jamendo.search('popular', limit),
-        this.youtube.search('trending music', limit),
+      // Fetch trending tracks from all sources in parallel
+      const [spotifyTracks, jamendoTracks, youtubeTracks] = await Promise.allSettled([
+        this.getSpotifyTrending(),
+        this.getJamendoTrending(),
+        this.getYouTubeTrending()
       ]);
 
-      const trendingTracks: Track[] = [];
-
-      if (jamendoTrending.status === 'fulfilled') {
-        trendingTracks.push(...(jamendoTrending.value.tracks || []));
-        console.log(`✅ Jamendo trending: ${jamendoTrending.value.tracks?.length || 0} tracks`);
+      // Handle Spotify tracks
+      if (spotifyTracks.status === 'fulfilled' && spotifyTracks.value) {
+        tracks.push(...spotifyTracks.value.map(track => ({
+          ...track,
+          source: 'spotify',
+          audioUrl: track.preview_url || '',
+          hasPreview: !!track.preview_url
+        })));
       }
 
-      if (youtubeTrending.status === 'fulfilled') {
-        trendingTracks.push(...(youtubeTrending.value.tracks || []));
-        console.log(`✅ YouTube trending: ${youtubeTrending.value.tracks?.length || 0} tracks`);
+      // Handle Jamendo tracks
+      if (jamendoTracks.status === 'fulfilled' && jamendoTracks.value) {
+        tracks.push(...jamendoTracks.value.map(track => ({
+          ...track,
+          source: 'jamendo',
+          hasPreview: true
+        })));
       }
 
-      console.log(`🔥 Total trending tracks: ${trendingTracks.length}`);
-      return trendingTracks;
+      // Handle YouTube tracks
+      if (youtubeTracks.status === 'fulfilled' && youtubeTracks.value) {
+        tracks.push(...youtubeTracks.value.map(track => ({
+          ...track,
+          source: 'youtube',
+          hasPreview: true
+        })));
+      }
+
+      // Sort tracks by availability and popularity
+      const sortedTracks = tracks.sort((a, b) => {
+        // Prioritize tracks with audio
+        if (a.hasPreview && !b.hasPreview) return -1;
+        if (!a.hasPreview && b.hasPreview) return 1;
+
+        // Then by popularity if available
+        const aPopularity = a.popularity || 0;
+        const bPopularity = b.popularity || 0;
+        if (aPopularity !== bPopularity) {
+          return bPopularity - aPopularity;
+        }
+
+        // Then by source preference
+        const sourceOrder = { spotify: 3, youtube: 2, jamendo: 1 };
+        return (sourceOrder[b.source] || 0) - (sourceOrder[a.source] || 0);
+      });
+
+      console.log('🔥 Total trending tracks:', sortedTracks.length);
+      return sortedTracks;
+
     } catch (error) {
-      console.error('Failed to get trending tracks:', error);
+      console.error('❌ Error fetching trending tracks:', error);
       return [];
     }
   }
@@ -412,7 +450,7 @@ class MusicApiService {
     try {
       // For now, return trending tracks as recommendations
       // In a real app, you'd use the track ID to get specific recommendations
-      return await this.getTrending(limit);
+      return await this.getTrendingTracks();
     } catch (error) {
       console.error('Failed to get recommendations:', error);
       return [];

@@ -49,21 +49,22 @@ export interface SearchResult {
 
 // Helper function to get API base URL
 const getApiBaseUrl = () => {
-  // In development, use localhost
-  if (import.meta.env.DEV) {
-    return 'http://localhost:3000/api';
+  if (typeof window !== 'undefined') {
+    // Browser environment
+    return window.location.origin;
   }
-  // In production, use the deployed URL
-  return '/api';
+  // Server environment (Vercel)
+  return process.env.VITE_API_URL || 'http://localhost:3000';
 };
 
-// Spotify API Service
+// Spotify Service
 class SpotifyService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: getApiBaseUrl(),
+      baseURL: `${getApiBaseUrl()}/api`,
+      timeout: 10000,
     });
   }
 
@@ -78,98 +79,60 @@ class SpotifyService {
         },
       });
 
-      const tracks: Track[] = response.data.tracks?.items?.map((item: any) => {
-        const previewUrl = item.preview_url;
-        const webUrl = item.external_urls?.spotify || '';
-        const externalAudioUrl = item.external_ids?.isrc ? 
-          `https://open.spotify.com/track/${item.id}` : null;
-        
-        // Enhanced logging for Spotify track analysis
-        console.log('🎵 Spotify track analysis:', {
-          name: item.name,
-          artist: item.artists?.[0]?.name,
-          hasPreview: !!previewUrl,
-          previewUrl: previewUrl,
-          webUrl: webUrl,
-          externalAudioUrl: externalAudioUrl,
-          duration: item.duration_ms,
-          popularity: item.popularity,
-          album: item.album?.name,
-          explicit: item.explicit,
-          isrc: item.external_ids?.isrc,
-          availableMarkets: item.available_markets?.length || 0
-        });
-        
-        // Determine the best audio URL to use with improved logic
-        let audioUrl = '';
-        let audioType: 'preview' | 'web' | 'none' = 'none';
-        
-        if (previewUrl) {
-          audioUrl = previewUrl;
-          audioType = 'preview';
-          console.log('✅ Using Spotify preview URL for audio');
-        } else if (externalAudioUrl) {
-          audioUrl = externalAudioUrl;
-          audioType = 'web';
-          console.log('⚠️ No preview URL - will use Spotify Web URL for external playback');
-        } else if (webUrl) {
-          audioUrl = webUrl;
-          audioType = 'web';
-          console.log('⚠️ No preview URL - will use Spotify Web URL for external playback');
-        } else {
-          console.log('❌ No audio URL available - track will be metadata only');
-        }
-        
-        return {
-          id: `spotify:${item.id}`,
-          title: item.name,
-          artist: item.artists?.[0]?.name || 'Unknown Artist',
-          album: item.album?.name || 'Unknown Album',
-          duration: Math.floor(item.duration_ms / 1000),
-          url: audioUrl, // Use the determined audio URL
-          previewUrl: previewUrl, // Keep original preview URL for reference
-          coverUrl: item.album?.images?.[0]?.url || '',
-          source: 'spotify' as const,
-          explicit: item.explicit,
-          popularity: item.popularity,
-          genres: item.album?.genres || [],
-          releaseDate: item.album?.release_date,
-          // Add metadata about audio availability
-          audioType: audioType,
-          hasAudio: audioType !== 'none',
-        };
-      }) || [];
+      const tracks: Track[] = (response.data.tracks?.items || []).map((item: any) => ({
+        id: `spotify:${item.id}`,
+        title: item.name,
+        artist: item.artists?.[0]?.name || 'Unknown Artist',
+        album: item.album?.name || 'Unknown Album',
+        duration: Math.round(item.duration_ms / 1000),
+        url: item.external_urls?.spotify || '',
+        previewUrl: item.preview_url || undefined,
+        coverUrl: item.album?.images?.[0]?.url || '',
+        source: 'spotify' as const,
+        explicit: item.explicit || false,
+        popularity: item.popularity / 100,
+        genres: [],
+        releaseDate: item.album?.release_date,
+        license: 'Spotify'
+      }));
 
-      // Enhanced summary logging with more details
-      const tracksWithPreviews = tracks.filter(t => t.previewUrl);
-      const tracksWithWebUrls = tracks.filter(t => t.url && t.url.includes('open.spotify.com'));
-      const tracksWithNoAudio = tracks.filter(t => !t.hasAudio);
-      const popularTracks = tracks.filter(t => (t.popularity || 0) > 70);
-      
-      console.log('📊 Spotify search summary:', {
-        totalTracks: tracks.length,
-        tracksWithPreviews: tracksWithPreviews.length,
-        tracksWithWebUrls: tracksWithWebUrls.length,
-        tracksWithNoAudio: tracksWithNoAudio.length,
-        popularTracks: popularTracks.length,
-        previewPercentage: tracks.length > 0 ? Math.round((tracksWithPreviews.length / tracks.length) * 100) : 0,
-      });
+      const artists: Artist[] = (response.data.artists?.items || []).map((item: any) => ({
+        id: `spotify:${item.id}`,
+        name: item.name,
+        image: item.images?.[0]?.url,
+        genres: item.genres || [],
+        followers: item.followers?.total,
+        popularity: item.popularity / 100,
+        source: 'spotify'
+      }));
 
-      return { tracks };
-    } catch (error: any) {
-      console.error('Spotify search error:', error.response?.data || error.message);
-      return { tracks: [] };
+      const albums: Album[] = (response.data.albums?.items || []).map((item: any) => ({
+        id: `spotify:${item.id}`,
+        title: item.name,
+        artist: item.artists?.[0]?.name || 'Unknown Artist',
+        image: item.images?.[0]?.url || '',
+        releaseDate: item.release_date,
+        trackCount: item.total_tracks,
+        source: 'spotify'
+      }));
+
+      console.log(`📊 Spotify search results: ${tracks.length} tracks, ${artists.length} artists, ${albums.length} albums`);
+      return { tracks, artists, albums };
+    } catch (error) {
+      console.error('Spotify search failed:', error);
+      return { tracks: [], artists: [], albums: [] };
     }
   }
 }
 
-// Jamendo API Service
+// Jamendo Service
 class JamendoService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: getApiBaseUrl(),
+      baseURL: `${getApiBaseUrl()}/api`,
+      timeout: 10000,
     });
   }
 
@@ -177,124 +140,66 @@ class JamendoService {
     try {
       console.log('🎵 Searching Jamendo via proxy...');
       
-      const [tracksResponse, artistsResponse, albumsResponse] = await Promise.all([
-        this.api.get('/jamendo', {
-          params: {
-            type: 'tracks',
-            query,
-            limit,
-          },
-        }),
-        this.api.get('/jamendo', {
-          params: {
-            type: 'artists',
-            query,
-            limit,
-          },
-        }),
-        this.api.get('/jamendo', {
-          params: {
-            type: 'albums',
-            query,
-            limit,
-          },
-        }),
-      ]);
+      const response = await this.api.get('/jamendo', {
+        params: {
+          type: 'tracks',
+          query,
+          limit,
+        },
+      });
 
-      const tracks: Track[] = tracksResponse.data.results?.map((item: any) => ({
+      const tracks: Track[] = (response.data.results || []).map((item: any) => ({
         id: `jamendo:${item.id}`,
         title: item.name,
         artist: item.artist_name,
-        album: item.album_name,
+        album: item.album_name || 'Unknown Album',
         duration: item.duration,
-        url: item.audio || item.audiodownload,
-        coverUrl: item.album_image || item.image,
+        url: item.audio,
+        previewUrl: item.audio,
+        coverUrl: item.image || '',
         source: 'jamendo' as const,
-        license: item.license_ccurl,
-        genres: [item.musicinfo?.tags?.genres?.[0]?.name].filter(Boolean),
+        explicit: false,
+        popularity: item.popularity / 100,
+        genres: item.tags || [],
         releaseDate: item.releasedate,
-      })) || [];
+        license: item.license_ccurl || 'Creative Commons'
+      }));
 
-      const artists: Artist[] = artistsResponse.data.results?.map((item: any) => ({
-        id: `jamendo:${item.id}`,
-        name: item.name,
-        image: item.image,
-        source: 'jamendo',
-      })) || [];
-
-      const albums: Album[] = albumsResponse.data.results?.map((item: any) => ({
-        id: `jamendo:${item.id}`,
-        title: item.name,
-        artist: item.artist_name,
-        image: item.image,
-        releaseDate: item.releasedate,
-        source: 'jamendo',
-      })) || [];
-
-      console.log(`📊 Jamendo search results: ${tracks.length} tracks, ${artists.length} artists, ${albums.length} albums`);
-      return { tracks, artists, albums };
+      console.log(`📊 Jamendo search results: ${tracks.length} tracks found`);
+      return { tracks };
     } catch (error) {
-      console.error('Jamendo search error:', error);
-      return { tracks: [], artists: [], albums: [] };
+      console.error('Jamendo search failed:', error);
+      return { tracks: [] };
     }
   }
 }
 
-// SoundCloud API Service
+// SoundCloud Service (disabled - API forms closed)
 class SoundCloudService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: 'https://api.soundcloud.com',
+      baseURL: `${getApiBaseUrl()}/api`,
+      timeout: 10000,
     });
   }
 
   async search(query: string, limit: number = 20): Promise<Partial<SearchResult>> {
-    try {
-      const clientId = import.meta.env.VITE_SOUNDCLOUD_CLIENT_ID;
-      if (!clientId) {
-        console.info('SoundCloud API disabled - API forms are closed');
-        return { tracks: [], artists: [], albums: [] };
-      }
-
-      const response = await this.api.get('/tracks', {
-        params: {
-          client_id: clientId,
-          q: query,
-          limit,
-        },
-      });
-
-      const tracks: Track[] = response.data?.map((item: any) => ({
-        id: `soundcloud:${item.id}`,
-        title: item.title,
-        artist: item.user?.username || 'Unknown Artist',
-        album: 'SoundCloud Track',
-        duration: Math.floor(item.duration / 1000),
-        url: item.permalink_url,
-        previewUrl: item.stream_url ? `${item.stream_url}?client_id=${clientId}` : undefined,
-        coverUrl: item.artwork_url || item.user?.avatar_url || '',
-        source: 'soundcloud' as const,
-        genres: item.genre ? [item.genre] : [],
-        releaseDate: item.created_at,
-      })) || [];
-
-      return { tracks, artists: [], albums: [] };
-    } catch (error) {
-      console.error('SoundCloud search error:', error);
-      return { tracks: [], artists: [], albums: [] };
-    }
+    // SoundCloud API is currently disabled
+    console.log('🎵 SoundCloud search disabled - API forms closed');
+    return { tracks: [] };
   }
 }
 
-// YouTube Music API Service
+// YouTube Service
 class YouTubeService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: getApiBaseUrl(),
+      baseURL: `${getApiBaseUrl()}/api`,
+      timeout: 10000,
     });
   }
 
@@ -314,7 +219,7 @@ class YouTubeService {
         const duration = this.parseDuration(item.snippet.duration || 'PT3M');
         
         return {
-          id: videoId,
+          id: `youtube:${videoId}`,
           title: item.snippet.title.replace(/\(Official Music Video\)|\(Official Video\)|\(Official\)|\(Music Video\)|\(MV\)/gi, '').trim(),
           artist: item.snippet.channelTitle,
           album: 'YouTube Music',
@@ -497,5 +402,7 @@ class MusicApiService {
   }
 }
 
-export default MusicApiService;
-export type { Track, Artist, Album, SearchResult }; 
+// Create singleton instance
+const musicApi = new MusicApiService();
+
+export default musicApi; 

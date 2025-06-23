@@ -53,63 +53,82 @@ class YouTubePlayerService {
   // Load YouTube IFrame API
   private loadYouTubeAPI(): void {
     if (window.YT) {
+      console.log('✅ YouTube IFrame API already loaded');
       this.isApiReady = true;
       this.initializePlayer();
       return;
     }
 
-    // Create script tag for YouTube IFrame API
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
+    
+    // Add error handling for script load
+    tag.onerror = () => {
+      console.error('❌ Failed to load YouTube IFrame API');
+      this.setState({
+        error: 'Failed to load YouTube player',
+        loading: false
+      });
+    };
+
     const firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
-    // Set up callback for when API is ready
     window.onYouTubeIframeAPIReady = () => {
-      console.log('YouTube IFrame API ready');
+      console.log('✅ YouTube IFrame API ready');
       this.isApiReady = true;
       this.initializePlayer();
-      
-      // Load pending video if any
-      if (this.pendingLoad) {
-        this.loadVideo(this.pendingLoad);
-        this.pendingLoad = null;
-      }
     };
   }
 
   // Initialize YouTube player
   private initializePlayer(): void {
     if (!this.isApiReady) {
-      console.warn('YouTube API not ready yet');
+      console.warn('⚠️ YouTube API not ready');
+      return;
+    }
+
+    // Check if player is already initialized
+    if (this.player) {
+      console.log('✅ YouTube player already initialized');
       return;
     }
 
     try {
+      const playerDiv = document.createElement('div');
+      playerDiv.id = 'youtube-player';
+      playerDiv.style.display = 'none';
+      document.body.appendChild(playerDiv);
+
       this.player = new window.YT.Player('youtube-player', {
         height: '0',
         width: '0',
+        videoId: '',
         playerVars: {
           autoplay: 0,
           controls: 0,
           disablekb: 1,
           enablejsapi: 1,
           fs: 0,
-          iv_load_policy: 3,
           modestbranding: 1,
-          rel: 0,
-          showinfo: 0,
           playsinline: 1,
+          rel: 0
         },
         events: {
           onReady: this.onPlayerReady.bind(this),
           onStateChange: this.onPlayerStateChange.bind(this),
           onError: this.onPlayerError.bind(this),
-        },
+          onPlaybackQualityChange: (event: any) => {
+            console.log('🎥 YouTube quality changed:', event.data);
+          }
+        }
       });
     } catch (error) {
-      console.error('Failed to initialize YouTube player:', error);
-      this.setState({ error: 'Failed to initialize YouTube player' });
+      console.error('❌ Failed to initialize YouTube player:', error);
+      this.setState({
+        error: 'Failed to initialize YouTube player',
+        loading: false
+      });
     }
   }
 
@@ -260,56 +279,74 @@ class YouTubePlayerService {
 
   // Private event handlers
   private onPlayerReady(event: any): void {
-    console.log('YouTube player ready');
-    this.setState({ loading: false });
-    this.startTimeUpdate();
+    console.log('✅ YouTube player ready');
+    this.setState({ loading: false, error: null });
     this.callbacks.onLoad?.();
+
+    // Load any pending video
+    if (this.pendingLoad) {
+      this.loadVideo(this.pendingLoad);
+      this.pendingLoad = null;
+    }
   }
 
   private onPlayerStateChange(event: any): void {
-    const state = event.data;
-    console.log('YouTube player state change:', state);
+    const states = window.YT.PlayerState;
+    const newState = {
+      isPlaying: event.data === states.PLAYING,
+      loading: event.data === states.BUFFERING,
+      error: null
+    };
 
-    switch (state) {
-      case window.YT.PlayerState.PLAYING:
-        this.setState({ isPlaying: true });
+    // Update state without triggering reloads
+    this.setState(newState);
+
+    switch (event.data) {
+      case states.PLAYING:
+        this.startTimeUpdate();
         this.callbacks.onPlay?.();
         break;
-      case window.YT.PlayerState.PAUSED:
-        this.setState({ isPlaying: false });
+      case states.PAUSED:
+        this.stopTimeUpdate();
         this.callbacks.onPause?.();
         break;
-      case window.YT.PlayerState.ENDED:
-        this.setState({ isPlaying: false, currentTime: 0 });
+      case states.ENDED:
+        this.stopTimeUpdate();
         this.callbacks.onEnd?.();
         break;
-      case window.YT.PlayerState.BUFFERING:
-        this.setState({ loading: true });
-        break;
-      case window.YT.PlayerState.CUED:
-        this.setState({ loading: false });
+      case states.BUFFERING:
+        // Don't trigger loading state for short buffers
+        setTimeout(() => {
+          if (this.state.loading) {
+            this.setState({ loading: false });
+          }
+        }, 1000);
         break;
     }
 
-    this.callbacks.onStateChange?.(state);
+    this.callbacks.onStateChange?.(event.data);
   }
 
   private onPlayerError(event: any): void {
-    console.error('YouTube player error:', event.data);
-    const errorMessages = {
+    const errorCodes = {
       2: 'Invalid video ID',
       5: 'HTML5 player error',
-      100: 'Video not found',
-      101: 'Embedding not allowed',
-      150: 'Embedding not allowed'
+      100: 'Video not found or removed',
+      101: 'Video playback not allowed',
+      150: 'Video playback not allowed'
     };
-    
-    const errorMessage = errorMessages[event.data as keyof typeof errorMessages] || 'Unknown error';
-    this.setState({ 
-      error: `YouTube error: ${errorMessage}`,
-      loading: false 
+
+    const errorMessage = errorCodes[event.data] || 'Unknown error occurred';
+    console.error(`❌ YouTube player error (${event.data}):`, errorMessage);
+
+    this.setState({
+      error: `YouTube playback error: ${errorMessage}`,
+      loading: false,
+      isPlaying: false
     });
-    this.callbacks.onLoadError?.(errorMessage);
+
+    this.stopTimeUpdate();
+    this.callbacks.onLoadError?.(event);
   }
 
   // Start time update interval

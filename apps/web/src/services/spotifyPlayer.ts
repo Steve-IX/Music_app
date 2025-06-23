@@ -301,26 +301,12 @@ class SpotifyPlayerService {
 
   async loadTrack(trackId: string): Promise<void> {
     if (!this.isInitialized || !this.state.deviceId) {
-      console.warn('⚠️ Spotify player not ready, falling back to external player');
-      this.setState({ error: 'Spotify player not ready - opening in Spotify app' });
+      console.warn('⚠️ Spotify player not ready, initializing...');
+      await this.initializePlayer();
       
-      // Fallback to opening in Spotify with better user feedback
-      const spotifyUrl = `https://open.spotify.com/track/${trackId}`;
-      console.log('🔄 Opening track in Spotify app:', spotifyUrl);
-      
-      // Try to open in new tab, fallback to current tab if blocked
-      try {
-        const newWindow = window.open(spotifyUrl, '_blank');
-        if (!newWindow) {
-          // Popup blocked, open in current tab
-          window.location.href = spotifyUrl;
-        }
-      } catch (error) {
-        console.error('❌ Failed to open Spotify URL:', error);
-        window.location.href = spotifyUrl;
+      if (!this.isInitialized || !this.state.deviceId) {
+        throw new Error('Failed to initialize Spotify player');
       }
-      
-      return;
     }
 
     try {
@@ -333,7 +319,20 @@ class SpotifyPlayerService {
 
       console.log('🎵 Loading Spotify track:', trackId);
       
-      // Enhanced API call with better error handling
+      // First, transfer playback to our device
+      await fetch('https://api.spotify.com/v1/me/player', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_ids: [this.state.deviceId],
+          play: false
+        })
+      });
+
+      // Then start playing the track
       const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.state.deviceId}`, {
         method: 'PUT',
         headers: {
@@ -349,7 +348,6 @@ class SpotifyPlayerService {
         const errorText = await response.text();
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         
-        // Enhanced error messages based on status codes
         switch (response.status) {
           case 401:
             errorMessage = 'Authentication expired - please reconnect to Spotify';
@@ -388,16 +386,12 @@ class SpotifyPlayerService {
       
       let userMessage = `Failed to load track: ${error.message}`;
       
-      // Provide fallback options based on error type
       if (error.message.includes('Premium')) {
-        userMessage = 'Premium required - opening in Spotify app';
-        // Open in Spotify app as fallback
-        window.open(`https://open.spotify.com/track/${trackId}`, '_blank');
+        userMessage = 'Premium required for Spotify playback';
       } else if (error.message.includes('unavailable')) {
         userMessage = 'Track unavailable in your region';
       } else if (error.message.includes('Authentication')) {
         userMessage = 'Please reconnect to Spotify';
-        // Trigger re-authentication
         setTimeout(() => {
           this.authService.startAuth();
         }, 1000);
@@ -408,6 +402,7 @@ class SpotifyPlayerService {
         loading: false 
       });
       this.callbacks.onLoadError?.(error);
+      throw error;
     }
   }
 

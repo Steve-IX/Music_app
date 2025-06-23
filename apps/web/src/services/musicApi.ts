@@ -80,20 +80,22 @@ class SpotifyService {
       });
 
       const tracks: Track[] = (response.data.tracks?.items || []).map((item: any) => ({
-          id: `spotify:${item.id}`,
-          title: item.name,
-          artist: item.artists?.[0]?.name || 'Unknown Artist',
-          album: item.album?.name || 'Unknown Album',
+        id: `spotify:${item.id}`,
+        title: item.name,
+        artist: item.artists?.[0]?.name || 'Unknown Artist',
+        album: item.album?.name || 'Unknown Album',
         duration: Math.round(item.duration_ms / 1000),
         url: item.external_urls?.spotify || '',
         previewUrl: item.preview_url || undefined,
-          coverUrl: item.album?.images?.[0]?.url || '',
-          source: 'spotify' as const,
+        coverUrl: item.album?.images?.[0]?.url || '',
+        source: 'spotify' as const,
         explicit: item.explicit || false,
         popularity: item.popularity / 100,
         genres: [],
-          releaseDate: item.album?.release_date,
-        license: 'Spotify'
+        releaseDate: item.album?.release_date,
+        license: 'Spotify',
+        audioType: 'web',
+        hasAudio: true
       }));
 
       const artists: Artist[] = (response.data.artists?.items || []).map((item: any) => ({

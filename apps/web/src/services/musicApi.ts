@@ -149,38 +149,45 @@ class JamendoService {
 
   async search(query: string, limit: number = 20): Promise<Partial<SearchResult>> {
     try {
-      console.log('🎵 Searching Jamendo via proxy...');
-      
+      console.log(`🎵 Searching Jamendo via proxy...`);
       const response = await this.api.get('/jamendo', {
-          params: {
+        params: {
           type: 'tracks',
-          query,
-            limit,
-          },
+          query: query || 'popular',
+          limit
+        }
       });
 
-      const tracks: Track[] = (response.data.results || []).map((item: any) => ({
+      if (!response.data || !response.data.results) {
+        console.log('📊 Jamendo search results: No data returned');
+        return { tracks: [] };
+      }
+
+      const tracks: Track[] = response.data.results.map((item: any, index: number) => ({
         id: `jamendo:${item.id}`,
         title: item.name,
         artist: item.artist_name,
         album: item.album_name || 'Unknown Album',
         duration: item.duration,
         url: item.audio,
-        previewUrl: item.audio,
-        coverUrl: item.image || '',
+        coverUrl: item.image,
         source: 'jamendo' as const,
-        explicit: false,
-        popularity: item.popularity / 100,
-        genres: item.tags || [],
+        popularity: item.popularity || 0,
+        genres: item.tags ? item.tags.split(',').map((tag: string) => tag.trim()) : [],
         releaseDate: item.releasedate,
-        license: item.license_ccurl || 'Creative Commons'
+        license: item.license_ccurl,
+        audioType: 'full' as const,
+        hasAudio: !!item.audio
       }));
 
       console.log(`📊 Jamendo search results: ${tracks.length} tracks found`);
       return { tracks };
-    } catch (error) {
-      console.error('Jamendo search failed:', error);
-      return { tracks: [] };
+    } catch (error: any) {
+      console.error('❌ Jamendo search failed:', error.response?.data || error.message);
+      if (error.response?.status === 500) {
+        console.error('🔧 Jamendo API key might not be configured properly');
+      }
+      throw error;
     }
   }
 }
@@ -216,49 +223,45 @@ class YouTubeService {
 
   async search(query: string, limit: number = 20): Promise<Partial<SearchResult>> {
     try {
-      console.log('🎵 Searching YouTube via proxy...');
-      
+      console.log(`🎵 Searching YouTube via proxy...`);
       const response = await this.api.get('/youtube', {
         params: {
-          query,
-          limit,
-        },
+          query: query || 'popular music',
+          limit
+        }
       });
 
       if (!response.data || !response.data.items) {
-        console.log('📊 YouTube search results: 0 tracks (no items in response)');
+        console.log('📊 YouTube search results: No items in response');
         return { tracks: [] };
       }
 
-      const tracks: Track[] = response.data.items.map((item: any) => {
-        const videoId = item.id.videoId;
-        const duration = this.parseDuration(item.snippet?.duration || 'PT3M');
-        
-        return {
-          id: `youtube:${videoId}`,
-          title: (item.snippet?.title || 'Unknown Title').replace(/\(Official Music Video\)|\(Official Video\)|\(Official\)|\(Music Video\)|\(MV\)/gi, '').trim(),
-          artist: item.snippet?.channelTitle || 'Unknown Artist',
+      const tracks: Track[] = response.data.items
+        .filter((item: any) => item.id?.videoId)
+        .map((item: any) => ({
+          id: `youtube:${item.id.videoId}`,
+          title: item.snippet.title,
+          artist: item.snippet.channelTitle,
           album: 'YouTube Music',
-          duration: duration,
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          previewUrl: `https://www.youtube.com/watch?v=${videoId}`,
-          coverUrl: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
+          duration: this.parseDuration(item.snippet.duration || '0:00'),
+          url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+          coverUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
           source: 'youtube' as const,
-          explicit: false,
-          popularity: 0.8,
-          genres: ['Music'],
-          releaseDate: item.snippet?.publishedAt,
-          license: 'YouTube',
-          audioType: 'web',
+          popularity: 0,
+          genres: [],
+          releaseDate: item.snippet.publishedAt,
+          audioType: 'web' as const,
           hasAudio: true
-        };
-      });
+        }));
 
-      console.log(`📊 YouTube search results: ${tracks.length} tracks found`);
+      console.log(`📊 YouTube search results: ${tracks.length} tracks (${response.data.items.length} items in response)`);
       return { tracks };
-    } catch (error) {
-      console.error('YouTube search failed:', error);
-      return { tracks: [] };
+    } catch (error: any) {
+      console.error('❌ YouTube search failed:', error.response?.data || error.message);
+      if (error.response?.status === 500) {
+        console.error('🔧 YouTube API key might not be configured properly');
+      }
+      throw error;
     }
   }
 
@@ -306,15 +309,15 @@ class MusicApiService {
       // Run searches in parallel with error handling
       const [spotifyResult, jamendoResult, youtubeResult] = await Promise.allSettled([
         this.spotify.search(query, limit).catch(error => {
-          console.error('Spotify search error:', error);
+          console.error('❌ Spotify search error:', error);
           return { tracks: [], artists: [], albums: [] };
         }),
         this.jamendo.search(query, limit).catch(error => {
-          console.error('Jamendo search error:', error);
+          console.error('❌ Jamendo search error:', error);
           return { tracks: [] };
         }),
         this.youtube.search(query, limit).catch(error => {
-          console.error('YouTube search error:', error);
+          console.error('❌ YouTube search error:', error);
           return { tracks: [] };
         })
       ]);
@@ -332,6 +335,8 @@ class MusicApiService {
         allArtists.push(...(spotifyResult.value.artists || []));
         allAlbums.push(...(spotifyResult.value.albums || []));
         console.log(`✅ Spotify: ${tracks.length} tracks (${tracks.filter(t => t.previewUrl).length} with previews)`);
+      } else {
+        console.log(`⚠️ Spotify: No results or failed (${spotifyResult.status})`);
       }
 
       // Process Jamendo results
@@ -341,6 +346,11 @@ class MusicApiService {
         );
         allTracks.push(...tracks);
         console.log(`✅ Jamendo: ${tracks.length} tracks`);
+      } else {
+        console.log(`⚠️ Jamendo: No results or failed (${jamendoResult.status})`);
+        if (jamendoResult.status === 'rejected') {
+          console.error('Jamendo rejection reason:', jamendoResult.reason);
+        }
       }
 
       // Process YouTube results
@@ -350,6 +360,11 @@ class MusicApiService {
         );
         allTracks.push(...tracks);
         console.log(`✅ YouTube: ${tracks.length} tracks`);
+      } else {
+        console.log(`⚠️ YouTube: No results or failed (${youtubeResult.status})`);
+        if (youtubeResult.status === 'rejected') {
+          console.error('YouTube rejection reason:', youtubeResult.reason);
+        }
       }
 
       // Sort tracks by availability and popularity
@@ -376,7 +391,7 @@ class MusicApiService {
         total: allTracks.length + allArtists.length + allAlbums.length,
       };
     } catch (error) {
-      console.error('Search failed:', error);
+      console.error('❌ Search failed:', error);
       return { tracks: [], artists: [], albums: [], total: 0 };
     }
   }

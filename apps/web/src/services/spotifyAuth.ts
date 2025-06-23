@@ -24,8 +24,8 @@ class SpotifyAuthService {
   constructor() {
     const isProd = window.location.hostname !== 'localhost';
     const redirectUri = isProd 
-      ? 'https://music-app-eta-vert.vercel.app/spotify-callback.html'
-      : `${window.location.origin}/spotify-callback.html`;
+      ? 'https://music-app-eta-vert.vercel.app/spotify-callback'
+      : `${window.location.origin}/spotify-callback`;
 
     this.config = {
       clientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',

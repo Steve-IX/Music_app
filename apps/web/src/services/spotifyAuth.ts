@@ -98,7 +98,7 @@ class SpotifyAuthService {
       const authResult = urlParams.get('spotify_auth');
       
       if (authResult === 'success') {
-        console.log('✅ Spotify authentication successful, checking for code...');
+        console.log('✅ Spotify authentication successful');
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
       } else if (authResult === 'error') {
@@ -116,31 +116,6 @@ class SpotifyAuthService {
         console.log('✅ Using stored Spotify tokens');
         this.triggerAuthSuccess();
         return true;
-      }
-
-      // Check if we have a pending authorization code (from callback)
-      const authCode = localStorage.getItem('spotify_auth_code');
-      const authTimestamp = localStorage.getItem('spotify_auth_timestamp');
-      
-      if (authCode && authTimestamp) {
-        const timestamp = parseInt(authTimestamp);
-        const now = Date.now();
-        
-        // Check if the code is not too old (5 minutes)
-        if (now - timestamp < 5 * 60 * 1000) {
-          console.log('🔄 Found recent authorization code, exchanging for tokens...');
-          localStorage.removeItem('spotify_auth_code'); // Clear it immediately
-          localStorage.removeItem('spotify_auth_timestamp');
-          
-          const success = await this.exchangeCodeForTokens(authCode);
-          if (success) {
-            return true;
-          }
-        } else {
-          console.log('⚠️ Authorization code is too old, clearing...');
-          localStorage.removeItem('spotify_auth_code');
-          localStorage.removeItem('spotify_auth_timestamp');
-        }
       }
 
       // Check if we have expired tokens and can refresh them
@@ -208,44 +183,6 @@ class SpotifyAuthService {
     window.location.href = authUrl.toString();
   }
 
-  // Exchange authorization code for tokens
-  private async exchangeCodeForTokens(code: string): Promise<boolean> {
-    try {
-      console.log('🔄 Exchanging code for tokens...');
-      
-      const response = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${this.config.clientId}:${this.config.clientSecret}`)}`
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: this.config.redirectUri
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
-      }
-
-      const tokens: SpotifyTokens = await response.json();
-      this.tokens = tokens;
-      this.tokenExpiry = Date.now() + (tokens.expires_in * 1000);
-      this.storeTokens(tokens);
-
-      console.log('✅ Successfully obtained Spotify tokens');
-      this.triggerAuthSuccess();
-      return true;
-
-    } catch (error) {
-      console.error('❌ Error exchanging code for tokens:', error);
-      return false;
-    }
-  }
-
   // Refresh access token
   async refreshTokens(): Promise<boolean> {
     if (!this.tokens?.refresh_token) {
@@ -256,21 +193,19 @@ class SpotifyAuthService {
     try {
       console.log('🔄 Refreshing Spotify tokens...');
       
-      const response = await fetch('https://accounts.spotify.com/api/token', {
+      const response = await fetch('/api/spotify-refresh', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${this.config.clientId}:${this.config.clientSecret}`)}`
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
+        body: JSON.stringify({
           refresh_token: this.tokens.refresh_token
         })
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const newTokens: SpotifyTokens = await response.json();
@@ -366,8 +301,6 @@ class SpotifyAuthService {
     try {
       localStorage.removeItem('spotify_tokens');
       localStorage.removeItem('spotify_token_expiry');
-      localStorage.removeItem('spotify_auth_code');
-      localStorage.removeItem('spotify_auth_timestamp');
       console.log('🗑️ Spotify tokens cleared');
     } catch (error) {
       console.error('❌ Error clearing Spotify tokens:', error);

@@ -365,29 +365,143 @@ class MusicApiService {
     try {
       console.log('🔥 Fetching trending tracks...');
       
-      const [jamendoTrending, youtubeTrending] = await Promise.allSettled([
-        this.jamendo.search('popular', limit),
-        this.youtube.search('trending music', limit),
+      // Use popular search terms to get varied content
+      const popularQueries = ['pop music', 'rock hits', 'hip hop', 'electronic', 'jazz classics'];
+      const randomQuery = popularQueries[Math.floor(Math.random() * popularQueries.length)];
+      
+      const [spotifyTrending, jamendoTrending, youtubeTrending] = await Promise.allSettled([
+        this.spotify.search(randomQuery, Math.floor(limit / 3)),
+        this.jamendo.search('popular', Math.floor(limit / 3)),
+        this.youtube.search('trending music 2024', Math.floor(limit / 3)),
       ]);
 
       const trendingTracks: Track[] = [];
 
+      if (spotifyTrending.status === 'fulfilled') {
+        trendingTracks.push(...(spotifyTrending.value.tracks || []));
+        console.log(`✅ Spotify trending: ${spotifyTrending.value.tracks?.length || 0} tracks`);
+      } else {
+        console.error('❌ Spotify trending failed:', spotifyTrending.reason);
+      }
+
       if (jamendoTrending.status === 'fulfilled') {
         trendingTracks.push(...(jamendoTrending.value.tracks || []));
         console.log(`✅ Jamendo trending: ${jamendoTrending.value.tracks?.length || 0} tracks`);
+      } else {
+        console.error('❌ Jamendo trending failed:', jamendoTrending.reason);
       }
 
       if (youtubeTrending.status === 'fulfilled') {
         trendingTracks.push(...(youtubeTrending.value.tracks || []));
         console.log(`✅ YouTube trending: ${youtubeTrending.value.tracks?.length || 0} tracks`);
+      } else {
+        console.error('❌ YouTube trending failed:', youtubeTrending.reason);
       }
 
-      console.log(`🔥 Total trending tracks: ${trendingTracks.length}`);
-      return trendingTracks;
+      // Shuffle the results to mix different sources
+      const shuffledTracks = trendingTracks.sort(() => Math.random() - 0.5);
+      
+      console.log(`🔥 Total trending tracks: ${shuffledTracks.length}`);
+      
+      // If we got results, return them
+      if (shuffledTracks.length > 0) {
+        return shuffledTracks.slice(0, limit);
+      }
+      
+      // Fallback to demo content if all APIs failed
+      console.log('⚠️ All APIs failed, using demo content');
+      return this.getDemoTracks(limit);
     } catch (error) {
       console.error('Failed to get trending tracks:', error);
-      return [];
+      return this.getDemoTracks(limit);
     }
+  }
+
+  private getDemoTracks(limit: number = 20): Track[] {
+    const demoTracks: Track[] = [
+      {
+        id: 'demo:1',
+        title: 'Sunset Dreams',
+        artist: 'Electronic Vibes',
+        album: 'Chill Waves',
+        duration: 215,
+        url: '',
+        previewUrl: undefined,
+        coverUrl: 'https://picsum.photos/400/400?random=1',
+        source: 'demo' as const,
+        explicit: false,
+        popularity: 0.8,
+        genres: ['Electronic', 'Chill'],
+        releaseDate: '2024-01-15',
+        license: 'Demo'
+      },
+      {
+        id: 'demo:2',
+        title: 'City Lights',
+        artist: 'Urban Beats',
+        album: 'Night Life',
+        duration: 198,
+        url: '',
+        previewUrl: undefined,
+        coverUrl: 'https://picsum.photos/400/400?random=2',
+        source: 'demo' as const,
+        explicit: false,
+        popularity: 0.9,
+        genres: ['Hip Hop', 'Urban'],
+        releaseDate: '2024-02-01',
+        license: 'Demo'
+      },
+      {
+        id: 'demo:3',
+        title: 'Ocean Waves',
+        artist: 'Nature Sounds',
+        album: 'Peaceful Moments',
+        duration: 254,
+        url: '',
+        previewUrl: undefined,
+        coverUrl: 'https://picsum.photos/400/400?random=3',
+        source: 'demo' as const,
+        explicit: false,
+        popularity: 0.7,
+        genres: ['Ambient', 'Nature'],
+        releaseDate: '2024-01-20',
+        license: 'Demo'
+      },
+      {
+        id: 'demo:4',
+        title: 'Guitar Hero',
+        artist: 'Rock Masters',
+        album: 'Greatest Hits',
+        duration: 267,
+        url: '',
+        previewUrl: undefined,
+        coverUrl: 'https://picsum.photos/400/400?random=4',
+        source: 'demo' as const,
+        explicit: false,
+        popularity: 0.85,
+        genres: ['Rock', 'Classic'],
+        releaseDate: '2024-01-10',
+        license: 'Demo'
+      },
+      {
+        id: 'demo:5',
+        title: 'Jazz Night',
+        artist: 'Smooth Jazz Collective',
+        album: 'Late Night Sessions',
+        duration: 289,
+        url: '',
+        previewUrl: undefined,
+        coverUrl: 'https://picsum.photos/400/400?random=5',
+        source: 'demo' as const,
+        explicit: false,
+        popularity: 0.75,
+        genres: ['Jazz', 'Smooth'],
+        releaseDate: '2024-01-25',
+        license: 'Demo'
+      }
+    ];
+
+    return demoTracks.slice(0, limit);
   }
 
   async getRecommendations(trackId: string, limit: number = 20): Promise<Track[]> {

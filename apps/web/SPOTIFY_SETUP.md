@@ -25,7 +25,7 @@ The most common issue is **"INVALID_CLIENT: Invalid redirect URI"**. Follow thes
 Create/update your `.env.local` file in `apps/web/`:
 
 ```env
-# Spotify Web API & Web Playback SDK
+# Spotify Web API & Web Playback SDK (for local development)
 VITE_SPOTIFY_CLIENT_ID=your_client_id_here
 VITE_SPOTIFY_CLIENT_SECRET=your_client_secret_here
 
@@ -35,6 +35,21 @@ VITE_SPOTIFY_CLIENT_SECRET=your_client_secret_here
 # Other APIs (optional)
 VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
 VITE_JAMENDO_CLIENT_ID=your_jamendo_client_id_here
+```
+
+**For Production/Vercel deployment, add these environment variables in your Vercel Dashboard (without VITE_ prefix):**
+
+```env
+# Spotify API (server-side variables for Vercel API routes)
+SPOTIFY_CLIENT_ID=your_client_id_here
+SPOTIFY_CLIENT_SECRET=your_client_secret_here
+
+# Optional: Override redirect URI
+# SPOTIFY_REDIRECT_URI=https://your-custom-domain.com/spotify-callback
+
+# Other APIs
+YOUTUBE_API_KEY=your_youtube_api_key_here
+JAMENDO_CLIENT_ID=your_jamendo_client_id_here
 ```
 
 ### **Step 3: Restart Your App**

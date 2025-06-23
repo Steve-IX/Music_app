@@ -40,9 +40,6 @@
     .error {
       color: #ff5252;
     }
-    .success {
-      color: #1DB954;
-    }
   </style>
 </head>
 <body>
@@ -59,67 +56,19 @@
       messageEl.classList.add('error');
     }
 
-    // Function to show success message
-    function showSuccess(message) {
-      document.querySelector('.spinner').style.display = 'none';
-      const messageEl = document.querySelector('.message');
-      messageEl.textContent = message;
-      messageEl.classList.add('success');
-    }
-
-    // Function to exchange code for tokens via server
-    async function exchangeCodeForTokens(code) {
-      try {
-        const response = await fetch('/api/spotify-auth', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            code: code,
-            redirect_uri: window.location.origin + '/spotify-callback'
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-
-        const tokens = await response.json();
-        
-        // Store tokens in localStorage
-        localStorage.setItem('spotify_tokens', JSON.stringify(tokens));
-        localStorage.setItem('spotify_token_expiry', (Date.now() + (tokens.expires_in * 1000)).toString());
-        
-        return tokens;
-      } catch (error) {
-        console.error('Token exchange error:', error);
-        throw error;
-      }
-    }
-
     // Function to handle successful authentication
-    async function handleSuccess(code) {
-      try {
-        showSuccess('Exchanging authorization code...');
-        await exchangeCodeForTokens(code);
-        
-        showSuccess('Authentication successful! Redirecting...');
-        
-        // Redirect back to the main app with success parameter
-        setTimeout(() => {
-          window.location.href = '/?spotify_auth=success';
-        }, 1000);
-      } catch (error) {
-        showError(`Token exchange failed: ${error.message}`);
-        setTimeout(() => {
-          window.location.href = '/?spotify_auth=error&error=' + encodeURIComponent(error.message);
-        }, 3000);
+    function handleSuccess() {
+      // Close this window if it's a popup
+      if (window.opener) {
+        window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
+        window.close();
+      } else {
+        // Redirect back to the main app
+        window.location.href = '/';
       }
     }
 
-    // Check for errors and handle authentication
+    // Check for errors
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
     const code = urlParams.get('code');
@@ -127,17 +76,12 @@
 
     if (error) {
       showError(`Authentication failed: ${error}`);
-      setTimeout(() => {
-        window.location.href = '/?spotify_auth=error&error=' + encodeURIComponent(error);
-      }, 3000);
     } else if (!code) {
       showError('No authorization code received');
-      setTimeout(() => {
-        window.location.href = '/?spotify_auth=error&error=no_code';
-      }, 3000);
     } else {
-      // Successfully received authorization code
-      handleSuccess(code);
+      // Store the code temporarily
+      sessionStorage.setItem('spotify_auth_code', code);
+      handleSuccess();
     }
   </script>
 </body>

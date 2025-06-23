@@ -41,29 +41,13 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar, onSearc
 
   const handleSpotifyAuth = () => {
     if (isSpotifyConnected) {
-      // Show confirmation before disconnecting
-      if (window.confirm('Are you sure you want to disconnect from Spotify? This will stop any current playback.')) {
-        spotifyPlayer.destroy();
-        setIsSpotifyConnected(false);
-      }
+      // Disconnect
+      spotifyPlayer.destroy();
+      setIsSpotifyConnected(false);
     } else {
       // Connect
       spotifyPlayer.startAuth();
     }
-  };
-
-  const getSpotifyButtonText = () => {
-    if (isSpotifyConnected) {
-      return 'Connected';
-    }
-    return 'Connect Spotify';
-  };
-
-  const getSpotifyButtonTitle = () => {
-    if (isSpotifyConnected) {
-      return 'Spotify Connected - Click to disconnect';
-    }
-    return 'Connect Spotify for in-site playback (requires Premium account)';
   };
 
   return (
@@ -111,12 +95,12 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar, onSearc
         <button
           className={`spotify-auth-button ${isSpotifyConnected ? 'connected' : ''}`}
           onClick={handleSpotifyAuth}
-          aria-label={getSpotifyButtonText()}
-          title={getSpotifyButtonTitle()}
+          aria-label={isSpotifyConnected ? 'Disconnect Spotify' : 'Connect Spotify'}
+          title={isSpotifyConnected ? 'Spotify Connected - Click to disconnect' : 'Connect Spotify for in-site playback'}
         >
           <span className="spotify-icon">🎵</span>
           <span className="spotify-text">
-            {getSpotifyButtonText()}
+            {isSpotifyConnected ? 'Connected' : 'Connect Spotify'}
           </span>
         </button>
         

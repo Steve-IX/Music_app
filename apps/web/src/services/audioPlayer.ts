@@ -172,49 +172,31 @@ class AudioPlayerService {
       }
 
       // Handle Spotify Web URLs - try to play within site first
-      if (isSpotifyWebUrl || (trackId && trackId.startsWith('spotify:'))) {
-        console.log('🎵 Spotify track detected - attempting in-site playback');
+      if (isSpotifyWebUrl) {
+        console.log('🎵 Spotify Web URL detected - attempting in-site playback');
         this.currentSource = 'spotify';
-        this.currentTrackId = trackId || this.extractSpotifyId(url);
+        this.currentTrackId = trackId || 'spotify-external';
         
-        if (this.spotifyPlayer) {
+        if (this.spotifyPlayer && this.spotifyPlayer.isLoaded()) {
           try {
-            if (this.currentTrackId?.startsWith('spotify:')) {
-              this.currentTrackId = this.currentTrackId.split(':')[1];
-            }
-            await this.spotifyPlayer.loadTrack(this.currentTrackId);
+            await this.spotifyPlayer.loadTrackFromUrl(url);
             console.log('✅ Spotify track loaded in-site');
             this.setState({ loading: false });
             resolve();
-            return;
-          } catch (error: any) {
-            console.warn('⚠️ Spotify in-site playback failed:', error);
-            if (error.message.includes('Premium')) {
-              // If premium is required, try to play preview if available
-              if (isSpotifyPreview) {
-                console.log('🎵 Falling back to preview URL');
-                this.currentSource = 'howler';
-                await this.loadPreviewTrack(url);
-                resolve();
-                return;
-              }
-            }
-            this.setState({ 
-              loading: false,
-              error: error.message
-            });
+          } catch (error) {
+            console.warn('⚠️ Spotify in-site playback failed, falling back to external:', error);
+            // Fallback to external player
+            window.open(url, '_blank');
+            this.setState({ loading: false });
             resolve();
-            return;
           }
         } else {
-          console.warn('⚠️ Spotify player not available');
-          this.setState({ 
-            loading: false,
-            error: 'Spotify player not available - please try again'
-          });
+          console.warn('⚠️ Spotify player not ready, opening in external player');
+          window.open(url, '_blank');
+          this.setState({ loading: false });
           resolve();
-          return;
         }
+        return;
       }
 
       // Handle Spotify Preview URLs - use Howler.js
@@ -685,52 +667,6 @@ class AudioPlayerService {
       this.spotifyPlayer.destroy();
       this.spotifyPlayer = null;
     }
-  }
-
-  private extractSpotifyId(url: string): string {
-    const match = url.match(/spotify\.com\/track\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : '';
-  }
-
-  private async loadPreviewTrack(url: string): Promise<void> {
-    this.currentHowl = new Howl({
-      src: [url],
-      html5: true,
-      preload: true,
-      volume: this.state.volume / 100,
-      onload: () => {
-        console.log('✅ Preview loaded successfully');
-        this.setState({ 
-          loading: false, 
-          duration: this.currentHowl?.duration() || 0,
-          error: null 
-        });
-        this.callbacks.onLoad?.();
-      },
-      onloaderror: (id, error) => {
-        console.error('❌ Failed to load preview:', error);
-        this.setState({ 
-          loading: false, 
-          error: `Failed to load preview: ${error}` 
-        });
-        this.callbacks.onLoadError?.(error);
-      },
-      onplay: () => {
-        this.setState({ isPlaying: true });
-        this.startTimeUpdate();
-        this.callbacks.onPlay?.();
-      },
-      onpause: () => {
-        this.setState({ isPlaying: false });
-        this.stopTimeUpdate();
-        this.callbacks.onPause?.();
-      },
-      onend: () => {
-        this.setState({ isPlaying: false, currentTime: 0 });
-        this.stopTimeUpdate();
-        this.callbacks.onEnd?.();
-      }
-    });
   }
 }
 

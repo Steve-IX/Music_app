@@ -58,9 +58,6 @@ class YouTubePlayerService {
       return;
     }
 
-    // Suppress unload event listener deprecation warning
-    this.suppressUnloadWarning();
-
     // Create script tag for YouTube IFrame API
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
@@ -79,21 +76,6 @@ class YouTubePlayerService {
         this.pendingLoad = null;
       }
     };
-  }
-
-  // Suppress unload event listener deprecation warning
-  private suppressUnloadWarning(): void {
-    // Store original addEventListener
-    const originalAddEventListener = window.addEventListener;
-    
-    // Override addEventListener to filter out unload events
-    window.addEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
-      if (type === 'unload') {
-        // Replace unload with beforeunload to avoid deprecation warning
-        return originalAddEventListener.call(this, 'beforeunload', listener as EventListener, options);
-      }
-      return originalAddEventListener.call(this, type, listener, options);
-    } as typeof window.addEventListener;
   }
 
   // Initialize YouTube player

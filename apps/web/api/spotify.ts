@@ -19,8 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { query = '', limit = 20 } = req.query;
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    const clientId = process.env.VITE_SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.VITE_SPOTIFY_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       return res.status(500).json({ error: 'Spotify credentials not configured' });

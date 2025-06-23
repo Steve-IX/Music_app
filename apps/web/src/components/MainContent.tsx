@@ -64,15 +64,16 @@ const CardIcons = {
 };
 
 const MainContent: React.FC<MainContentProps> = ({ searchQuery = '' }) => {
-  const { dispatch, state, addToQueue, searchMusic, playApiTrack, playPreview } = useMusic();
+  const { dispatch, state, addToQueue, searchMusic, playApiTrack, playPreview, getTrending } = useMusic();
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [expandedSections, setExpandedSections] = useState<SectionState>({
-    featuredAlbums: false,
-    popularTracks: false,
-    curatedPlaylists: false,
-    trendingTracks: false,
+    featuredAlbums: true,
+    popularTracks: true,
+    curatedPlaylists: true,
+    trendingTracks: true,
   });
+  const [showSpotifyInfo, setShowSpotifyInfo] = useState(false);
 
   // Enhanced demo data with more realistic content
   const demoContent = useMemo(() => [
@@ -115,6 +116,29 @@ const MainContent: React.FC<MainContentProps> = ({ searchQuery = '' }) => {
       searchMusic(searchQuery);
     }
   }, [searchQuery, searchMusic]);
+
+  // Load trending songs on mount and after Spotify connection
+  useEffect(() => {
+    const loadTrendingContent = async () => {
+      try {
+        await getTrending();
+      } catch (error) {
+        console.error('Failed to load trending content:', error);
+        showToast('Failed to load trending content', 'error');
+      }
+    };
+
+    loadTrendingContent();
+
+    // Listen for Spotify connection events
+    const handleSpotifyConnection = () => {
+      loadTrendingContent();
+      showToast('Connected to Spotify! Loading trending songs...', 'success');
+    };
+
+    window.addEventListener('spotify-connected', handleSpotifyConnection);
+    return () => window.removeEventListener('spotify-connected', handleSpotifyConnection);
+  }, [getTrending]);
 
   // Combine API results with demo content for search
   const allContent = useMemo(() => {

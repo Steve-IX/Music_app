@@ -14,10 +14,6 @@
       "dest": "/api/$1"
     },
     {
-      "src": "^/spotify-callback$",
-      "dest": "/spotify-callback.html"
-    },
-    {
       "handle": "filesystem"
     },
     {

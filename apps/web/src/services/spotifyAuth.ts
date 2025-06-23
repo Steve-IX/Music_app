@@ -125,73 +125,51 @@ class SpotifyAuthService {
 
   // Start OAuth flow
   startAuth(): void {
-    if (!this.config.clientId) {
-      console.error('❌ Spotify Client ID not configured');
-      return;
-    }
-
     const state = this.generateState();
-    const authUrl = new URL('https://accounts.spotify.com/authorize');
-    authUrl.searchParams.append('client_id', this.config.clientId);
-    authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('redirect_uri', this.config.redirectUri);
-    authUrl.searchParams.append('scope', this.config.scopes.join(' '));
-    authUrl.searchParams.append('state', state);
-    authUrl.searchParams.append('show_dialog', 'true');
+    const scope = this.config.scopes.join(' ');
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: this.config.clientId,
+      scope: scope,
+      redirect_uri: this.config.redirectUri,
+      state: state,
+      show_dialog: 'false'
+    });
 
-    // Open auth window as a popup
-    const width = 500;
-    const height = 700;
-    const left = (window.screen.width / 2) - (width / 2);
-    const top = (window.screen.height / 2) - (height / 2);
+    // Store state for verification
+    localStorage.setItem('spotify_auth_state', state);
 
-    const authWindow = window.open(
-      authUrl.toString(),
-      'Spotify Login',
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
-
-    if (authWindow) {
-      console.log('🔐 Opened Spotify auth popup');
-    } else {
-      console.error('❌ Popup blocked - redirecting instead');
-      window.location.href = authUrl.toString();
-    }
+    // Redirect in the same window
+    window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
   }
 
   // Exchange authorization code for tokens
   private async exchangeCodeForTokens(code: string): Promise<boolean> {
     try {
-      console.log('🔄 Exchanging code for tokens...');
-      
-      const response = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${this.config.clientId}:${this.config.clientSecret}`)}`
-        },
-        body: new URLSearchParams({
+      const response = await axios.post('https://accounts.spotify.com/api/token', 
+        new URLSearchParams({
           grant_type: 'authorization_code',
           code: code,
-          redirect_uri: this.config.redirectUri
-        })
-      });
+          redirect_uri: this.config.redirectUri,
+          client_id: this.config.clientId,
+          client_secret: this.config.clientSecret
+        }), {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        }
+      );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
-      }
+      this.tokens = response.data;
+      this.tokenExpiry = Date.now() + (response.data.expires_in * 1000);
+      this.storeTokens(response.data);
 
-      const tokens: SpotifyTokens = await response.json();
-      this.tokens = tokens;
-      this.tokenExpiry = Date.now() + (tokens.expires_in * 1000);
-      this.storeTokens(tokens);
-
-      console.log('✅ Successfully obtained Spotify tokens');
+      // Dispatch custom event when connected
+      window.dispatchEvent(new CustomEvent('spotify-connected'));
+      
       return true;
-
     } catch (error) {
-      console.error('❌ Error exchanging code for tokens:', error);
+      console.error('❌ Failed to exchange code for tokens:', error);
       return false;
     }
   }

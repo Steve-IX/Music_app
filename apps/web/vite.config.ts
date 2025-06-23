@@ -8,32 +8,23 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'MusicStream',
         short_name: 'MusicStream',
-        description: 'Music anywhere, anytime, beautifully',
         theme_color: '#667eea',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
         icons: [
           {
-            src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect fill="%23667eea" width="192" height="192" rx="24"/><text y="140" font-size="120" text-anchor="middle" x="96" fill="white">🎵</text></svg>',
+            src: '/android-chrome-192x192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            type: 'image/png'
           },
           {
-            src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect fill="%23667eea" width="512" height="512" rx="64"/><text y="380" font-size="320" text-anchor="middle" x="256" fill="white">🎵</text></svg>',
+            src: '/android-chrome-512x512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            type: 'image/png'
           }
-        ],
-        categories: ['music', 'entertainment']
+        ]
       }
     })
   ],

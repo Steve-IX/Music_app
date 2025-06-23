@@ -19,14 +19,6 @@ This guide helps you connect MusicStream to real music APIs for searching and pl
    # VITE_SOUNDCLOUD_CLIENT_ID= (disabled - API forms closed)
    ```
 
-   **For Production/Vercel deployment, also add these environment variables in your Vercel dashboard:**
-   ```env
-   SPOTIFY_CLIENT_ID=your_spotify_client_id
-   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret  
-   JAMENDO_CLIENT_ID=your_jamendo_client_id
-   YOUTUBE_API_KEY=your_youtube_api_key
-   ```
-
 4. **Install dependencies and restart**:
    ```bash
    npm install
@@ -144,7 +136,7 @@ Create `.env.local` with these variables:
 
 ```env
 # ============================================================================
-# FOR LOCAL DEVELOPMENT (.env.local file)
+# REQUIRED: Music API Keys
 # ============================================================================
 
 # Spotify (for metadata and limited previews)
@@ -159,20 +151,6 @@ VITE_JAMENDO_CLIENT_ID=your_jamendo_client_id
 
 # SoundCloud (for indie content - disabled)
 # VITE_SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id
-
-# ============================================================================
-# FOR PRODUCTION/VERCEL (Set in Vercel Dashboard)
-# ============================================================================
-
-# Spotify API (without VITE_ prefix for server-side)
-SPOTIFY_CLIENT_ID=your_spotify_client_id
-SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-
-# YouTube API (without VITE_ prefix for server-side)
-YOUTUBE_API_KEY=your_youtube_api_key
-
-# Jamendo API (without VITE_ prefix for server-side)
-JAMENDO_CLIENT_ID=your_jamendo_client_id
 
 # ============================================================================
 # OPTIONAL: Additional Features

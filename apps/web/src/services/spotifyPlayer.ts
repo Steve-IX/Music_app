@@ -105,6 +105,12 @@ class SpotifyPlayerService {
         return;
       }
 
+      // Check if player is already initialized
+      if (this.isInitialized && this.player) {
+        console.log('✅ Spotify player already initialized');
+        return;
+      }
+
       console.log('🎵 Initializing Spotify player...');
       this.setState({ loading: true, error: null });
 
@@ -116,12 +122,13 @@ class SpotifyPlayerService {
           if (token) {
             cb(token);
           } else {
+            // Don't trigger a reload, just update state
             console.error('❌ No access token available for player');
             this.setState({ error: 'Authentication token expired - please reconnect' });
           }
         },
         volume: this.state.volume / 100,
-        enableMediaSession: true, // Enable media session for better integration
+        enableMediaSession: true,
         enableMediaSessionMetadata: true
       });
 
@@ -132,6 +139,8 @@ class SpotifyPlayerService {
         
         if (message.includes('Premium')) {
           userMessage = 'Spotify Premium required for in-site playback';
+          // Don't try to reinitialize for Premium errors
+          this.isInitialized = false;
         } else if (message.includes('browser')) {
           userMessage = 'Your browser may not support Spotify Web Playback SDK';
         } else if (message.includes('network')) {
@@ -150,10 +159,13 @@ class SpotifyPlayerService {
           error: 'Spotify authentication failed - please reconnect',
           loading: false 
         });
-        // Try to re-authenticate after a delay
-        setTimeout(() => {
-          this.authService.startAuth();
-        }, 2000);
+        
+        // Only try to re-authenticate if not already trying
+        if (!this.state.loading) {
+          setTimeout(() => {
+            this.authService.startAuth();
+          }, 2000);
+        }
       });
 
       this.player.addListener('account_error', ({ message }) => {
@@ -161,7 +173,9 @@ class SpotifyPlayerService {
         let userMessage = 'Spotify account error';
         
         if (message.includes('Premium')) {
-          userMessage = 'Spotify Premium account required for in-site playback';
+          userMessage = 'This feature requires Spotify Premium';
+          // Don't retry for Premium errors
+          this.isInitialized = false;
         } else if (message.includes('country')) {
           userMessage = 'Spotify not available in your region';
         } else if (message.includes('restricted')) {
@@ -231,19 +245,25 @@ class SpotifyPlayerService {
         }
       });
 
-      // Enhanced ready handler
+      // Enhanced ready handler with debounce
+      let readyTimeout: NodeJS.Timeout | null = null;
       this.player.addListener('ready', ({ device_id }) => {
-        console.log('✅ Spotify player ready with device ID:', device_id);
-        this.setState({ 
-          deviceId: device_id,
-          loading: false,
-          error: null 
-        });
-        this.isInitialized = true;
-        this.callbacks.onLoad?.();
+        if (readyTimeout) {
+          clearTimeout(readyTimeout);
+        }
         
-        // Log success message
-        console.log('🎉 Spotify Web Playback SDK ready! You can now play tracks in-site.');
+        readyTimeout = setTimeout(() => {
+          console.log('✅ Spotify player ready with device ID:', device_id);
+          this.setState({ 
+            deviceId: device_id,
+            loading: false,
+            error: null 
+          });
+          this.isInitialized = true;
+          this.callbacks.onLoad?.();
+          
+          console.log('🎉 Spotify Web Playback SDK ready! You can now play tracks in-site.');
+        }, 1000); // Debounce ready events
       });
 
       // Enhanced not ready handler

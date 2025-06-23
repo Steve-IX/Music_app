@@ -1,0 +1,579 @@
+# GraphQL Schema Definition Language (SDL)
+# MusicStream API - Comprehensive Schema
+# Author: CodeSmith-Maestro
+# Created: 2024
+
+# Scalar Types
+scalar DateTime
+scalar Upload
+scalar JSON
+scalar Duration
+
+# Directives
+directive @auth(requires: UserRole = USER) on FIELD_DEFINITION
+directive @rateLimit(max: Int!, window: Duration!) on FIELD_DEFINITION
+directive @deprecated(reason: String) on FIELD_DEFINITION
+
+# Enums
+enum UserRole {
+  USER
+  ARTIST
+  ADMIN
+  MODERATOR
+}
+
+enum PlaylistPrivacy {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+  COLLABORATIVE
+}
+
+enum AudioQuality {
+  LOW      # 96 kbps
+  STANDARD # 192 kbps
+  HIGH     # 320 kbps
+  LOSSLESS # FLAC
+  HI_RES   # 24-bit/96kHz+
+}
+
+enum RepeatMode {
+  OFF
+  ONE
+  ALL
+}
+
+enum ActivityType {
+  PLAYED_TRACK
+  LIKED_TRACK
+  CREATED_PLAYLIST
+  FOLLOWED_USER
+  SHARED_TRACK
+}
+
+enum NotificationType {
+  NEW_RELEASE
+  PLAYLIST_UPDATE
+  SOCIAL_ACTIVITY
+  SYSTEM_MESSAGE
+}
+
+# User Management
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  displayName: String!
+  avatar: String
+  bio: String
+  country: String
+  premium: Boolean!
+  verified: Boolean!
+  followerCount: Int!
+  followingCount: Int!
+  playlistCount: Int!
+  followers: [User!]! @auth
+  following: [User!]! @auth
+  playlists: [Playlist!]!
+  likedTracks: [Track!]! @auth
+  recentlyPlayed: [PlayHistory!]! @auth
+  topTracks: [Track!]!
+  topArtists: [Artist!]!
+  settings: UserSettings! @auth
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type UserSettings {
+  audioQuality: AudioQuality!
+  downloadQuality: AudioQuality!
+  crossfadeDuration: Int!
+  enableNotifications: Boolean!
+  privateSession: Boolean!
+  showExplicitContent: Boolean!
+  language: String!
+  theme: String!
+}
+
+# Music Catalog
+type Artist {
+  id: ID!
+  name: String!
+  bio: String
+  image: String
+  verified: Boolean!
+  followerCount: Int!
+  monthlyListeners: Int!
+  genres: [Genre!]!
+  albums: [Album!]!
+  topTracks: [Track!]!
+  relatedArtists: [Artist!]!
+  events: [Event!]!
+  socialLinks: [SocialLink!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Album {
+  id: ID!
+  title: String!
+  artist: Artist!
+  releaseDate: DateTime!
+  albumType: String!
+  image: String!
+  totalTracks: Int!
+  duration: Duration!
+  genres: [Genre!]!
+  tracks: [Track!]!
+  label: String
+  copyright: String
+  explicit: Boolean!
+  popularity: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Track {
+  id: ID!
+  title: String!
+  artist: Artist!
+  album: Album!
+  trackNumber: Int!
+  discNumber: Int!
+  duration: Duration!
+  explicit: Boolean!
+  preview: String
+  audioUrl: String! @auth
+  lyrics: Lyrics
+  genres: [Genre!]!
+  popularity: Float!
+  playCount: Int!
+  likeCount: Int!
+  isLiked: Boolean @auth
+  audioFeatures: AudioFeatures
+  credits: [Credit!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Lyrics {
+  id: ID!
+  trackId: ID!
+  language: String!
+  content: String!
+  timed: Boolean!
+  lines: [LyricLine!]!
+}
+
+type LyricLine {
+  timestamp: Duration!
+  text: String!
+}
+
+type AudioFeatures {
+  acousticness: Float!
+  danceability: Float!
+  energy: Float!
+  instrumentalness: Float!
+  liveness: Float!
+  loudness: Float!
+  speechiness: Float!
+  tempo: Float!
+  valence: Float!
+  key: Int!
+  mode: Int!
+  timeSignature: Int!
+}
+
+type Credit {
+  id: ID!
+  role: String!
+  artist: Artist!
+}
+
+type Genre {
+  id: ID!
+  name: String!
+  description: String
+  image: String
+  parentGenre: Genre
+  subGenres: [Genre!]!
+  topTracks: [Track!]!
+  topArtists: [Artist!]!
+}
+
+# Playlists
+type Playlist {
+  id: ID!
+  name: String!
+  description: String
+  image: String
+  owner: User!
+  privacy: PlaylistPrivacy!
+  collaborative: Boolean!
+  tracks: [PlaylistTrack!]!
+  followerCount: Int!
+  totalDuration: Duration!
+  trackCount: Int!
+  isFollowed: Boolean @auth
+  canEdit: Boolean! @auth
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PlaylistTrack {
+  id: ID!
+  track: Track!
+  addedBy: User!
+  addedAt: DateTime!
+  position: Int!
+}
+
+# Playback & Queue
+type PlaybackState {
+  id: ID!
+  user: User! @auth
+  device: Device!
+  isPlaying: Boolean!
+  track: Track
+  context: PlaybackContext
+  position: Duration!
+  volume: Int!
+  shuffle: Boolean!
+  repeat: RepeatMode!
+  timestamp: DateTime!
+}
+
+type PlaybackContext {
+  type: String! # album, playlist, artist, queue
+  id: ID!
+  name: String!
+  image: String
+}
+
+type Device {
+  id: ID!
+  name: String!
+  type: String!
+  volumePercent: Int!
+  isActive: Boolean!
+  isPrivateSession: Boolean!
+  isRestricted: Boolean!
+}
+
+type Queue {
+  currently_playing: Track
+  next: [Track!]!
+  previous: [Track!]!
+}
+
+# Social Features
+type Activity {
+  id: ID!
+  user: User!
+  type: ActivityType!
+  target: ActivityTarget!
+  timestamp: DateTime!
+  public: Boolean!
+}
+
+union ActivityTarget = Track | Playlist | Artist | User
+
+type PlayHistory {
+  id: ID!
+  track: Track!
+  playedAt: DateTime!
+  context: PlaybackContext
+  msPlayed: Int!
+}
+
+type Event {
+  id: ID!
+  artist: Artist!
+  name: String!
+  venue: String!
+  city: String!
+  country: String!
+  date: DateTime!
+  ticketUrl: String
+  image: String
+}
+
+type SocialLink {
+  platform: String!
+  url: String!
+}
+
+# Recommendations
+type Recommendation {
+  id: ID!
+  user: User! @auth
+  type: String!
+  title: String!
+  description: String
+  tracks: [Track!]!
+  reason: String
+  seeds: [String!]!
+  createdAt: DateTime!
+  expiresAt: DateTime
+}
+
+# Search
+type SearchResult {
+  tracks: [Track!]!
+  artists: [Artist!]!
+  albums: [Album!]!
+  playlists: [Playlist!]!
+  users: [User!]!
+  total: Int!
+}
+
+# Notifications
+type Notification {
+  id: ID!
+  user: User! @auth
+  type: NotificationType!
+  title: String!
+  message: String!
+  data: JSON
+  read: Boolean!
+  createdAt: DateTime!
+}
+
+# Root Types
+type Query {
+  # User Queries
+  me: User @auth
+  user(id: ID!): User
+  users(first: Int, after: String, search: String): UserConnection!
+
+  # Music Catalog
+  track(id: ID!): Track
+  tracks(ids: [ID!]!): [Track]!
+  album(id: ID!): Album
+  albums(first: Int, after: String, search: String): AlbumConnection!
+  artist(id: ID!): Artist
+  artists(first: Int, after: String, search: String): ArtistConnection!
+  genre(id: ID!): Genre
+  genres: [Genre!]!
+
+  # Playlists
+  playlist(id: ID!): Playlist
+  playlists(first: Int, after: String, search: String): PlaylistConnection!
+  featuredPlaylists(country: String, limit: Int): [Playlist!]!
+
+  # Search
+  search(query: String!, type: [String!], limit: Int, offset: Int): SearchResult!
+  
+  # Recommendations
+  recommendations(seed_artists: [ID!], seed_tracks: [ID!], seed_genres: [String!], limit: Int): Recommendation!
+  
+  # Playback
+  playbackState: PlaybackState @auth
+  devices: [Device!]! @auth
+  queue: Queue! @auth
+  
+  # Social
+  feed(first: Int, after: String): ActivityConnection! @auth
+  notifications(first: Int, after: String, unreadOnly: Boolean): NotificationConnection! @auth
+  
+  # Analytics (Admin only)
+  analytics(from: DateTime!, to: DateTime!): JSON @auth(requires: ADMIN)
+}
+
+type Mutation {
+  # Authentication
+  login(email: String!, password: String!): AuthPayload!
+  register(input: RegisterInput!): AuthPayload!
+  refreshToken(refreshToken: String!): AuthPayload!
+  logout: Boolean!
+  
+  # User Management
+  updateProfile(input: UpdateProfileInput!): User! @auth
+  updateSettings(input: UpdateSettingsInput!): UserSettings! @auth
+  followUser(userId: ID!): Boolean! @auth
+  unfollowUser(userId: ID!): Boolean! @auth
+  
+  # Playlist Management
+  createPlaylist(input: CreatePlaylistInput!): Playlist! @auth
+  updatePlaylist(id: ID!, input: UpdatePlaylistInput!): Playlist! @auth
+  deletePlaylist(id: ID!): Boolean! @auth
+  addTracksToPlaylist(playlistId: ID!, trackIds: [ID!]!, position: Int): Boolean! @auth
+  removeTracksFromPlaylist(playlistId: ID!, trackIds: [ID!]!): Boolean! @auth
+  reorderPlaylistTracks(playlistId: ID!, rangeStart: Int!, insertBefore: Int!, rangeLength: Int!): Boolean! @auth
+  followPlaylist(id: ID!): Boolean! @auth
+  unfollowPlaylist(id: ID!): Boolean! @auth
+  
+  # Library Management
+  likeTracks(trackIds: [ID!]!): Boolean! @auth
+  unlikeTracks(trackIds: [ID!]!): Boolean! @auth
+  saveAlbums(albumIds: [ID!]!): Boolean! @auth
+  unsaveAlbums(albumIds: [ID!]!): Boolean! @auth
+  
+  # Playback Control
+  play(contextUri: String, deviceId: String, position: Int): Boolean! @auth @rateLimit(max: 100, window: "60s")
+  pause(deviceId: String): Boolean! @auth
+  skipToNext(deviceId: String): Boolean! @auth
+  skipToPrevious(deviceId: String): Boolean! @auth
+  seek(position: Duration!, deviceId: String): Boolean! @auth
+  setVolume(volumePercent: Int!, deviceId: String): Boolean! @auth
+  setShuffle(state: Boolean!, deviceId: String): Boolean! @auth
+  setRepeat(state: RepeatMode!, deviceId: String): Boolean! @auth
+  transferPlayback(deviceId: String!, play: Boolean): Boolean! @auth
+  
+  # Queue Management
+  addToQueue(uri: String!, deviceId: String): Boolean! @auth
+  
+  # Social Actions
+  shareTrack(trackId: ID!, platform: String!): String! @auth
+  reportContent(contentId: ID!, contentType: String!, reason: String!): Boolean! @auth
+  
+  # Notifications
+  markNotificationRead(id: ID!): Boolean! @auth
+  markAllNotificationsRead: Boolean! @auth
+  
+  # Admin Actions
+  moderateContent(contentId: ID!, action: String!, reason: String): Boolean! @auth(requires: MODERATOR)
+  manageUser(userId: ID!, action: String!, reason: String): Boolean! @auth(requires: ADMIN)
+}
+
+type Subscription {
+  # Playback Updates
+  playbackStateChanged(userId: ID!): PlaybackState! @auth
+  
+  # Social Updates
+  activityFeed(userId: ID!): Activity! @auth
+  
+  # Real-time Notifications
+  notifications(userId: ID!): Notification! @auth
+  
+  # Collaborative Playlist Updates
+  playlistUpdated(playlistId: ID!): PlaylistUpdatePayload! @auth
+}
+
+# Input Types
+input RegisterInput {
+  username: String!
+  email: String!
+  password: String!
+  displayName: String!
+}
+
+input UpdateProfileInput {
+  displayName: String
+  bio: String
+}
+
+input UpdateSettingsInput {
+  audioQuality: AudioQuality
+  downloadQuality: AudioQuality
+  crossfadeDuration: Int
+  enableNotifications: Boolean
+  privateSession: Boolean
+  showExplicitContent: Boolean
+  language: String
+  theme: String
+}
+
+input CreatePlaylistInput {
+  name: String!
+  description: String
+  privacy: PlaylistPrivacy!
+  collaborative: Boolean
+}
+
+input UpdatePlaylistInput {
+  name: String
+  description: String
+  privacy: PlaylistPrivacy
+  collaborative: Boolean
+}
+
+# Payload Types
+type AuthPayload {
+  token: String!
+  refreshToken: String!
+  user: User!
+  expiresIn: Int!
+}
+
+type PlaylistUpdatePayload {
+  playlist: Playlist!
+  action: String!
+  user: User!
+  tracks: [Track!]
+}
+
+# Connection Types (Relay-style pagination)
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type AlbumConnection {
+  edges: [AlbumEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type AlbumEdge {
+  node: Album!
+  cursor: String!
+}
+
+type ArtistConnection {
+  edges: [ArtistEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ArtistEdge {
+  node: Artist!
+  cursor: String!
+}
+
+type PlaylistConnection {
+  edges: [PlaylistEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PlaylistEdge {
+  node: Playlist!
+  cursor: String!
+}
+
+type ActivityConnection {
+  edges: [ActivityEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ActivityEdge {
+  node: Activity!
+  cursor: String!
+}
+
+type NotificationConnection {
+  edges: [NotificationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type NotificationEdge {
+  node: Notification!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}

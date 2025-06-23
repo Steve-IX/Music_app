@@ -1,0 +1,1112 @@
+openapi: 3.1.0
+info:
+  title: MusicStream REST API
+  description: |
+    Comprehensive REST API for MusicStream music streaming platform.
+    This API complements the GraphQL API and provides specific endpoints for:
+    - File uploads and downloads
+    - Audio streaming
+    - Webhook handling
+    - Legacy client support
+    - Third-party integrations
+  version: 1.0.0
+  contact:
+    name: CodeSmith-Maestro
+    email: api@musicstream.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.musicstream.com/v1
+    description: Production server
+  - url: https://api-staging.musicstream.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Upload
+    description: File upload operations
+  - name: Streaming
+    description: Audio streaming endpoints
+  - name: Webhooks
+    description: Webhook endpoints for third-party integrations
+  - name: Health
+    description: Service health and monitoring
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  # Health Check
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Authentication
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login
+      description: Authenticate user with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: User registration
+      description: Register a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      description: Get a new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: User logout
+      description: Invalidate user session and tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # OAuth Endpoints
+  /auth/oauth/{provider}:
+    get:
+      tags: [Authentication]
+      summary: OAuth login
+      description: Initiate OAuth login with external provider
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, apple, spotify, github]
+          description: OAuth provider
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+          description: Redirect URI after authentication
+      responses:
+        '302':
+          description: Redirect to OAuth provider
+        '400':
+          description: Invalid provider or redirect URI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/oauth/{provider}/callback:
+    get:
+      tags: [Authentication]
+      summary: OAuth callback
+      description: Handle OAuth provider callback
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, apple, spotify, github]
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OAuth authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: OAuth authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # File Upload
+  /upload/avatar:
+    post:
+      tags: [Upload]
+      summary: Upload user avatar
+      description: Upload and set user profile avatar image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Avatar image file (max 5MB, JPG/PNG)
+      responses:
+        '200':
+          description: Avatar uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          description: Invalid file format or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /upload/playlist-cover:
+    post:
+      tags: [Upload]
+      summary: Upload playlist cover image
+      description: Upload cover image for a playlist
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Cover image file (max 10MB, JPG/PNG)
+                playlistId:
+                  type: string
+                  description: Playlist ID
+              required:
+                - file
+                - playlistId
+      responses:
+        '200':
+          description: Cover image uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          description: Invalid file or playlist ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized to edit playlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Audio Streaming
+  /stream/track/{trackId}:
+    get:
+      tags: [Streaming]
+      summary: Stream audio track
+      description: Get audio stream URL for a track with signed token
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Track ID
+        - name: quality
+          in: query
+          schema:
+            type: string
+            enum: [low, standard, high, lossless, hi_res]
+            default: standard
+          description: Audio quality
+        - name: device_id
+          in: query
+          schema:
+            type: string
+          description: Device ID for playback tracking
+      responses:
+        '200':
+          description: Stream URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamResponse'
+        '402':
+          description: Premium subscription required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Track not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /stream/track/{trackId}/manifest.m3u8:
+    get:
+      tags: [Streaming]
+      summary: Get HLS manifest
+      description: Get HLS manifest for adaptive bitrate streaming
+      security: []
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Signed streaming token
+      responses:
+        '200':
+          description: HLS manifest
+          content:
+            application/vnd.apple.mpegurl:
+              schema:
+                type: string
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /stream/track/{trackId}/segment/{segmentId}.ts:
+    get:
+      tags: [Streaming]
+      summary: Get audio segment
+      description: Get individual audio segment for HLS streaming
+      security: []
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: segmentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Signed streaming token
+      responses:
+        '200':
+          description: Audio segment
+          content:
+            video/MP2T:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Invalid or expired token
+        '404':
+          description: Segment not found
+
+  # Download (Offline)
+  /download/track/{trackId}:
+    get:
+      tags: [Streaming]
+      summary: Download track for offline playback
+      description: Download encrypted track file for offline listening
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: quality
+          in: query
+          schema:
+            type: string
+            enum: [standard, high, lossless]
+            default: standard
+      responses:
+        '200':
+          description: Download URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+        '402':
+          description: Premium subscription required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Download limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Webhooks
+  /webhooks/keycloak:
+    post:
+      tags: [Webhooks]
+      summary: Keycloak user events
+      description: Handle user lifecycle events from Keycloak
+      security:
+        - WebhookAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeycloakWebhookPayload'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks/payment:
+    post:
+      tags: [Webhooks]
+      summary: Payment provider webhook
+      description: Handle payment events from Stripe/PayPal
+      security:
+        - WebhookAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentWebhookPayload'
+      responses:
+        '200':
+          description: Payment webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # Analytics & Reporting
+  /analytics/playback:
+    post:
+      tags: [Analytics]
+      summary: Record playback event
+      description: Record track playback for analytics and recommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybackEvent'
+      responses:
+        '202':
+          description: Event recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid event data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Admin Endpoints
+  /admin/users/{userId}/ban:
+    post:
+      tags: [Admin]
+      summary: Ban user account
+      description: Ban user account (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for ban
+                duration:
+                  type: string
+                  format: duration
+                  description: Ban duration (ISO 8601)
+              required:
+                - reason
+      responses:
+        '200':
+          description: User banned successfully
+        '403':
+          description: Insufficient privileges
+        '404':
+          description: User not found
+
+  /admin/content/{contentId}/moderate:
+    post:
+      tags: [Admin]
+      summary: Moderate content
+      description: Take moderation action on content
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject, flag, remove]
+                reason:
+                  type: string
+              required:
+                - action
+      responses:
+        '200':
+          description: Content moderated successfully
+        '403':
+          description: Insufficient privileges
+        '404':
+          description: Content not found
+
+  # Feature Flags
+  /features:
+    get:
+      tags: [Configuration]
+      summary: Get feature flags
+      description: Get current feature flags for the client
+      responses:
+        '200':
+          description: Feature flags retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlags'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for server-to-server authentication
+
+    WebhookAuth:
+      type: apiKey
+      in: header
+      name: X-Webhook-Signature
+      description: HMAC signature for webhook verification
+
+  schemas:
+    # Response Schemas
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        services:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [up, down, degraded]
+              latency:
+                type: number
+                description: Latency in milliseconds
+      required:
+        - status
+        - timestamp
+        - version
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: Refresh token
+        token_type:
+          type: string
+          default: Bearer
+        expires_in:
+          type: integer
+          description: Token expiry in seconds
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+        - user
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        avatar:
+          type: string
+          format: uri
+        premium:
+          type: boolean
+        verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - username
+        - email
+        - display_name
+        - premium
+        - verified
+        - created_at
+
+    StreamResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Signed streaming URL
+        manifest_url:
+          type: string
+          format: uri
+          description: HLS manifest URL
+        expiry:
+          type: string
+          format: date-time
+          description: URL expiry time
+        quality:
+          type: string
+          enum: [low, standard, high, lossless, hi_res]
+      required:
+        - url
+        - manifest_url
+        - expiry
+        - quality
+
+    DownloadResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          format: uri
+          description: Signed download URL
+        file_size:
+          type: integer
+          description: File size in bytes
+        checksum:
+          type: string
+          description: SHA-256 checksum
+        encryption_key:
+          type: string
+          description: Encrypted file decryption key
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - download_url
+        - file_size
+        - checksum
+        - encryption_key
+        - expires_at
+
+    UploadResponse:
+      type: object
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          description: Public URL of uploaded file
+        filename:
+          type: string
+        size:
+          type: integer
+          description: File size in bytes
+        mime_type:
+          type: string
+      required:
+        - file_id
+        - url
+        - filename
+        - size
+        - mime_type
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          default: true
+        message:
+          type: string
+      required:
+        - success
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: object
+              description: Additional error details
+            trace_id:
+              type: string
+              description: Request trace ID for debugging
+          required:
+            - code
+            - message
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - error
+        - timestamp
+
+    FeatureFlags:
+      type: object
+      properties:
+        flags:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: boolean
+              - type: string
+              - type: number
+              - type: object
+        user_context:
+          type: object
+          properties:
+            user_id:
+              type: string
+            premium:
+              type: boolean
+            country:
+              type: string
+      required:
+        - flags
+
+    # Request Schemas
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        device_id:
+          type: string
+          description: Optional device identifier
+        remember_me:
+          type: boolean
+          default: false
+      required:
+        - email
+        - password
+
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          pattern: '^[a-zA-Z0-9_]{3,30}$'
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        country:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          description: ISO 3166-1 alpha-2 country code
+        terms_accepted:
+          type: boolean
+          const: true
+        marketing_consent:
+          type: boolean
+          default: false
+      required:
+        - username
+        - email
+        - password
+        - display_name
+        - country
+        - terms_accepted
+
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required:
+        - refresh_token
+
+    PlaybackEvent:
+      type: object
+      properties:
+        track_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        device_id:
+          type: string
+        session_id:
+          type: string
+        event_type:
+          type: string
+          enum: [play, pause, skip, seek, complete]
+        timestamp:
+          type: string
+          format: date-time
+        position:
+          type: integer
+          description: Playback position in milliseconds
+        duration:
+          type: integer
+          description: Track duration in milliseconds
+        context:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [album, playlist, artist, radio, search]
+            id:
+              type: string
+        shuffle:
+          type: boolean
+        repeat:
+          type: string
+          enum: [off, one, all]
+        quality:
+          type: string
+          enum: [low, standard, high, lossless, hi_res]
+      required:
+        - track_id
+        - user_id
+        - device_id
+        - session_id
+        - event_type
+        - timestamp
+        - position
+
+    # Webhook Schemas
+    KeycloakWebhookPayload:
+      type: object
+      properties:
+        event_type:
+          type: string
+          enum: [user.created, user.updated, user.deleted, user.login, user.logout]
+        user_id:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - event_type
+        - user_id
+        - timestamp
+
+    PaymentWebhookPayload:
+      type: object
+      properties:
+        event_type:
+          type: string
+          enum: [payment.success, payment.failed, subscription.created, subscription.cancelled, subscription.updated]
+        user_id:
+          type: string
+        subscription_id:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - event_type
+        - user_id
+        - timestamp
+
+  examples:
+    LoginSuccess:
+      summary: Successful login response
+      value:
+        access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token: "rt_abc123def456..."
+        token_type: "Bearer"
+        expires_in: 900
+        user:
+          id: "550e8400-e29b-41d4-a716-446655440000"
+          username: "musiclover"
+          email: "user@example.com"
+          display_name: "Music Lover"
+          premium: true
+          verified: false
+          created_at: "2024-01-01T00:00:00Z"
+
+    ErrorUnauthorized:
+      summary: Unauthorized error
+      value:
+        error:
+          code: "UNAUTHORIZED"
+          message: "Invalid credentials provided"
+          trace_id: "abc123-def456-ghi789"
+        timestamp: "2024-01-01T12:00:00Z"
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unauthorized:
+              $ref: '#/components/examples/ErrorUnauthorized'
+
+    Forbidden:
+      description: Access forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Number of requests allowed per window
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Number of requests remaining in current window
+        X-RateLimit-Reset:
+          schema:
+            type: string
+            format: date-time
+          description: Time when the rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

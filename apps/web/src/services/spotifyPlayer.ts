@@ -114,10 +114,39 @@ class SpotifyPlayerService {
       console.log('🎵 Initializing Spotify player...');
       this.setState({ loading: true, error: null });
 
+      // Check Premium status before initializing player
+      try {
+        const response = await fetch('https://api.spotify.com/v1/me', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+        
+        const profile = await response.json();
+        if (profile.product !== 'premium') {
+          throw new Error('Spotify Premium required for Web Playback');
+        }
+      } catch (error: any) {
+        console.error('❌ Premium check failed:', error);
+        this.setState({
+          error: 'Spotify Premium is required for in-site playback',
+          loading: false
+        });
+        return;
+      }
+
       // Create the player instance with enhanced configuration
       this.player = new window.Spotify.Player({
         name: 'MusicStream Web Player',
-        getOAuthToken: cb => { 
+        getOAuthToken: async cb => { 
+          // Always try to refresh token before returning
+          const needsRefresh = !this.authService.isTokenValid();
+          if (needsRefresh) {
+            await this.authService.refreshTokens();
+          }
+          
           const token = this.authService.getAccessToken();
           if (token) {
             cb(token);
@@ -139,6 +168,12 @@ class SpotifyPlayerService {
             error: 'Connection timeout - please check your Spotify Premium subscription',
             loading: false 
           });
+          // Attempt to clean up failed connection
+          try {
+            this.player?.disconnect();
+          } catch (e) {
+            // Ignore cleanup errors
+          }
         }
       }, 15000);
 
@@ -156,12 +191,33 @@ class SpotifyPlayerService {
           userMessage = 'Your browser may not support Spotify Web Playback SDK';
         } else if (message.includes('network')) {
           userMessage = 'Network error - check your internet connection';
+        } else if (message.includes('authentication')) {
+          userMessage = 'Authentication failed - please reconnect to Spotify';
+          // Trigger reauth
+          this.authService.clearTokens();
         }
         
         this.setState({ 
           error: userMessage,
           loading: false 
         });
+      });
+
+      // Add WebSocket error recovery
+      this.player.addListener('authentication_error', async ({ message }) => {
+        console.error('❌ Spotify authentication error:', message);
+        
+        // Try to refresh token and reconnect
+        const refreshed = await this.authService.refreshTokens();
+        if (refreshed) {
+          console.log('🔄 Retrying connection after token refresh...');
+          await this.player.connect();
+        } else {
+          this.setState({
+            error: 'Authentication failed - please reconnect to Spotify',
+            loading: false
+          });
+        }
       });
 
       this.player.addListener('ready', ({ device_id }) => {

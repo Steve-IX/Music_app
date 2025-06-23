@@ -50,7 +50,8 @@ class SpotifyAuthService {
         'user-library-read',
         'user-top-read',
         'user-read-recently-played',
-        'app-remote-control'
+        'app-remote-control',
+        'web-playback'
       ]
     };
 
@@ -198,23 +199,23 @@ class SpotifyAuthService {
         
         // Clear tokens on 401 or invalid_grant
         if (response.status === 401 || (errorData && errorData.error === 'invalid_grant')) {
-          console.log('🔄 Invalid refresh token, clearing stored tokens');
+          console.warn('⚠️ Invalid or expired refresh token, clearing tokens');
           this.clearTokens();
         }
         
         return false;
       }
 
-      const newTokens = await response.json();
+      const newTokens: SpotifyTokens = await response.json();
       
-      // Preserve the refresh token if not provided in response
-      this.tokens = {
-        ...newTokens,
-        refresh_token: newTokens.refresh_token || this.tokens.refresh_token
-      };
+      // Preserve the refresh token if not returned in the response
+      if (!newTokens.refresh_token && this.tokens.refresh_token) {
+        newTokens.refresh_token = this.tokens.refresh_token;
+      }
       
+      this.tokens = newTokens;
       this.tokenExpiry = Date.now() + (newTokens.expires_in * 1000);
-      this.storeTokens(this.tokens);
+      this.storeTokens(newTokens);
 
       console.log('✅ Successfully refreshed Spotify tokens');
       return true;

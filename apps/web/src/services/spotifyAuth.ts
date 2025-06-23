@@ -91,54 +91,39 @@ class SpotifyAuthService {
   // Initialize authentication
   async initialize(): Promise<boolean> {
     try {
-      // Check if we have stored tokens
+      console.log('🔐 Initializing Spotify auth service...');
+      
+      // Check if we have stored tokens first
       const storedTokens = this.getStoredTokens();
-      if (storedTokens) {
+      if (storedTokens && this.isTokenValid()) {
         this.tokens = storedTokens;
-        this.tokenExpiry = Date.now() + (storedTokens.expires_in * 1000);
+        console.log('✅ Using stored Spotify tokens');
+        this.triggerAuthSuccess();
+        return true;
+      }
+
+      // Check if we have a pending authorization code (from callback)
+      const authCode = sessionStorage.getItem('spotify_auth_code');
+      if (authCode) {
+        console.log('🔄 Found pending authorization code, exchanging for tokens...');
+        sessionStorage.removeItem('spotify_auth_code'); // Clear it immediately
         
-        // Check if token is still valid
-        if (this.isTokenValid()) {
-          console.log('✅ Using stored Spotify tokens');
-          this.triggerAuthSuccess();
-          return true;
-        } else {
-          console.log('🔄 Spotify token expired, refreshing...');
-          return await this.refreshTokens();
-        }
-      }
-
-      // Check if we're returning from OAuth
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const error = urlParams.get('error');
-      const state = urlParams.get('state');
-
-      if (error) {
-        console.error('❌ Spotify OAuth error:', error);
-        return false;
-      }
-
-      if (code) {
-        console.log('🔄 Exchanging authorization code for tokens...');
-        const success = await this.exchangeCodeForTokens(code);
+        const success = await this.exchangeCodeForTokens(authCode);
         if (success) {
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          
-          // Return to the original URL if stored
-          const returnUrl = sessionStorage.getItem('spotify_auth_return_url');
-          if (returnUrl) {
-            sessionStorage.removeItem('spotify_auth_return_url');
-            window.location.href = returnUrl;
-          }
-          this.triggerAuthSuccess();
+          return true;
         }
-        return success;
       }
 
-      // No tokens and no code - need to authenticate
-      console.log('🔐 No Spotify tokens found, need to authenticate');
+      // Check if we have expired tokens and can refresh them
+      if (storedTokens && storedTokens.refresh_token) {
+        console.log('🔄 Attempting to refresh expired tokens...');
+        const refreshSuccess = await this.refreshTokens();
+        if (refreshSuccess) {
+          return true;
+        }
+      }
+
+      console.log('ℹ️ No valid Spotify authentication found');
       return false;
 
     } catch (error) {

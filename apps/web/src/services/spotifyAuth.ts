@@ -16,7 +16,7 @@ export interface SpotifyTokens {
   scope: string;
 }
 
-class SpotifyAuthService {
+export default class SpotifyAuthService {
   private config: SpotifyAuthConfig;
   private tokens: SpotifyTokens | null = null;
   private tokenExpiry: number = 0;
@@ -338,6 +338,4 @@ class SpotifyAuthService {
       throw error;
     }
   }
-}
-
-export default SpotifyAuthService; 
+} 

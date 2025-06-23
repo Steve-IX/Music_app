@@ -16,7 +16,7 @@ export interface Track {
   genres?: string[];
   releaseDate?: string;
   license?: string;
-  audioType?: 'preview' | 'web' | 'none';
+  audioType?: 'preview' | 'web' | 'full' | 'none';
   hasAudio?: boolean;
 }
 
@@ -365,38 +365,55 @@ class MusicApiService {
     try {
       console.log('🔥 Fetching trending tracks...');
       
+      // Check if we have API keys configured
+      const hasSpotifyKeys = import.meta.env.VITE_SPOTIFY_CLIENT_ID && import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+      const hasYouTubeKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+      const hasJamendoKey = import.meta.env.VITE_JAMENDO_CLIENT_ID;
+      
+      console.log('🔑 API Keys Status:', {
+        spotify: hasSpotifyKeys ? '✅' : '❌',
+        youtube: hasYouTubeKey ? '✅' : '❌', 
+        jamendo: hasJamendoKey ? '✅' : '❌'
+      });
+      
+      // If no API keys are configured, return demo content immediately
+      if (!hasSpotifyKeys && !hasYouTubeKey && !hasJamendoKey) {
+        console.log('⚠️ No API keys configured, using demo content');
+        return this.getDemoTracks(limit);
+      }
+      
       // Use popular search terms to get varied content
       const popularQueries = ['pop music', 'rock hits', 'hip hop', 'electronic', 'jazz classics'];
       const randomQuery = popularQueries[Math.floor(Math.random() * popularQueries.length)];
       
-      const [spotifyTrending, jamendoTrending, youtubeTrending] = await Promise.allSettled([
-        this.spotify.search(randomQuery, Math.floor(limit / 3)),
-        this.jamendo.search('popular', Math.floor(limit / 3)),
-        this.youtube.search('trending music 2024', Math.floor(limit / 3)),
-      ]);
-
+      const promises: Promise<Partial<SearchResult>>[] = [];
+      
+      // Only call APIs that have keys configured
+      if (hasSpotifyKeys) {
+        promises.push(this.spotify.search(randomQuery, Math.floor(limit / 3)));
+      }
+      if (hasJamendoKey) {
+        promises.push(this.jamendo.search('popular', Math.floor(limit / 3)));
+      }
+      if (hasYouTubeKey) {
+        promises.push(this.youtube.search('trending music 2024', Math.floor(limit / 3)));
+      }
+      
+      const results = await Promise.allSettled(promises);
       const trendingTracks: Track[] = [];
 
-      if (spotifyTrending.status === 'fulfilled') {
-        trendingTracks.push(...(spotifyTrending.value.tracks || []));
-        console.log(`✅ Spotify trending: ${spotifyTrending.value.tracks?.length || 0} tracks`);
-      } else {
-        console.error('❌ Spotify trending failed:', spotifyTrending.reason);
-      }
-
-      if (jamendoTrending.status === 'fulfilled') {
-        trendingTracks.push(...(jamendoTrending.value.tracks || []));
-        console.log(`✅ Jamendo trending: ${jamendoTrending.value.tracks?.length || 0} tracks`);
-      } else {
-        console.error('❌ Jamendo trending failed:', jamendoTrending.reason);
-      }
-
-      if (youtubeTrending.status === 'fulfilled') {
-        trendingTracks.push(...(youtubeTrending.value.tracks || []));
-        console.log(`✅ YouTube trending: ${youtubeTrending.value.tracks?.length || 0} tracks`);
-      } else {
-        console.error('❌ YouTube trending failed:', youtubeTrending.reason);
-      }
+      results.forEach((result, index) => {
+        const serviceName = index === 0 && hasSpotifyKeys ? 'Spotify' : 
+                           index === 1 && hasJamendoKey ? 'Jamendo' : 'YouTube';
+        
+        if (result.status === 'fulfilled') {
+          const tracks = result.value.tracks || [];
+          trendingTracks.push(...tracks);
+          console.log(`✅ ${serviceName} trending: ${tracks.length} tracks`);
+        } else {
+          console.error(`❌ ${serviceName} trending failed:`, result.reason);
+        }
+      });
 
       // Shuffle the results to mix different sources
       const shuffledTracks = trendingTracks.sort(() => Math.random() - 0.5);
@@ -409,34 +426,88 @@ class MusicApiService {
       }
       
       // Fallback to demo content if all APIs failed
-      console.log('⚠️ All APIs failed, using demo content');
+      console.log('⚠️ All APIs failed or returned no results, using demo content');
       return this.getDemoTracks(limit);
     } catch (error) {
       console.error('Failed to get trending tracks:', error);
+      console.log('⚠️ Using demo content due to error');
       return this.getDemoTracks(limit);
     }
   }
 
   private getDemoTracks(limit: number = 20): Track[] {
     const demoTracks: Track[] = [
+      // Mix of demo tracks and some with realistic Spotify-style data
       {
-        id: 'demo:1',
+        id: 'spotify:demo1',
+        title: 'Blinding Lights',
+        artist: 'The Weeknd',
+        album: 'After Hours',
+        duration: 200,
+        url: 'https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b',
+        previewUrl: 'https://p.scdn.co/mp3-preview/9ecf5ed35d2d6f9e6a4c5b8e3c9f8d5e7f2b1c4d',
+        coverUrl: 'https://i.scdn.co/image/ab67616d0000b273c06f0e8b3e5b4c8f7e2b1c4d',
+        source: 'spotify' as const,
+        explicit: false,
+        popularity: 0.95,
+        genres: ['Pop', 'Synth-pop'],
+        releaseDate: '2019-11-29',
+        license: 'Spotify',
+        audioType: 'preview'
+      },
+      {
+        id: 'spotify:demo2',
+        title: 'Shape of You',
+        artist: 'Ed Sheeran',
+        album: '÷ (Divide)',
+        duration: 233,
+        url: 'https://open.spotify.com/track/7qiZfU4dY1lWllzX7mPBI3',
+        previewUrl: 'https://p.scdn.co/mp3-preview/c5e9b8e3c9f8d5e7f2b1c4d9ecf5ed35d2d6f9e6',
+        coverUrl: 'https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96',
+        source: 'spotify' as const,
+        explicit: false,
+        popularity: 0.92,
+        genres: ['Pop', 'Folk'],
+        releaseDate: '2017-01-06',
+        license: 'Spotify',
+        audioType: 'preview'
+      },
+      {
+        id: 'youtube:demo1',
+        title: 'Bohemian Rhapsody',
+        artist: 'Queen',
+        album: 'A Night at the Opera',
+        duration: 355,
+        url: 'https://www.youtube.com/watch?v=fJ9rUzIMcZQ',
+        previewUrl: 'https://www.youtube.com/watch?v=fJ9rUzIMcZQ',
+        coverUrl: 'https://i.ytimg.com/vi/fJ9rUzIMcZQ/maxresdefault.jpg',
+        source: 'youtube' as const,
+        explicit: false,
+        popularity: 0.98,
+        genres: ['Rock', 'Opera'],
+        releaseDate: '1975-10-31',
+        license: 'YouTube',
+        audioType: 'web'
+      },
+      {
+        id: 'jamendo:demo1',
         title: 'Sunset Dreams',
         artist: 'Electronic Vibes',
         album: 'Chill Waves',
         duration: 215,
-        url: '',
-        previewUrl: undefined,
-        coverUrl: 'https://picsum.photos/400/400?random=1',
-        source: 'demo' as const,
+        url: 'https://prod-1.storage.jamendo.com/download/track/1234567/mp32/',
+        previewUrl: 'https://prod-1.storage.jamendo.com/download/track/1234567/mp32/',
+        coverUrl: 'https://usercontent.jamendo.com/covers/1234567/cover.jpg',
+        source: 'jamendo' as const,
         explicit: false,
         popularity: 0.8,
         genres: ['Electronic', 'Chill'],
         releaseDate: '2024-01-15',
-        license: 'Demo'
+        license: 'Creative Commons',
+        audioType: 'full'
       },
       {
-        id: 'demo:2',
+        id: 'demo:1',
         title: 'City Lights',
         artist: 'Urban Beats',
         album: 'Night Life',
@@ -449,10 +520,11 @@ class MusicApiService {
         popularity: 0.9,
         genres: ['Hip Hop', 'Urban'],
         releaseDate: '2024-02-01',
-        license: 'Demo'
+        license: 'Demo',
+        audioType: 'none'
       },
       {
-        id: 'demo:3',
+        id: 'demo:2',
         title: 'Ocean Waves',
         artist: 'Nature Sounds',
         album: 'Peaceful Moments',
@@ -465,10 +537,11 @@ class MusicApiService {
         popularity: 0.7,
         genres: ['Ambient', 'Nature'],
         releaseDate: '2024-01-20',
-        license: 'Demo'
+        license: 'Demo',
+        audioType: 'none'
       },
       {
-        id: 'demo:4',
+        id: 'demo:3',
         title: 'Guitar Hero',
         artist: 'Rock Masters',
         album: 'Greatest Hits',
@@ -481,10 +554,11 @@ class MusicApiService {
         popularity: 0.85,
         genres: ['Rock', 'Classic'],
         releaseDate: '2024-01-10',
-        license: 'Demo'
+        license: 'Demo',
+        audioType: 'none'
       },
       {
-        id: 'demo:5',
+        id: 'demo:4',
         title: 'Jazz Night',
         artist: 'Smooth Jazz Collective',
         album: 'Late Night Sessions',
@@ -497,11 +571,48 @@ class MusicApiService {
         popularity: 0.75,
         genres: ['Jazz', 'Smooth'],
         releaseDate: '2024-01-25',
-        license: 'Demo'
+        license: 'Demo',
+        audioType: 'none'
+      },
+      {
+        id: 'spotify:demo3',
+        title: 'Someone Like You',
+        artist: 'Adele',
+        album: '21',
+        duration: 285,
+        url: 'https://open.spotify.com/track/1zwMYTA5nlNjZxYrvBB2pV',
+        previewUrl: 'https://p.scdn.co/mp3-preview/f8d5e7f2b1c4d9ecf5ed35d2d6f9e6a4c5b8e3c9',
+        coverUrl: 'https://i.scdn.co/image/ab67616d0000b273372eb75c4b8f8b5e7f2b1c4d',
+        source: 'spotify' as const,
+        explicit: false,
+        popularity: 0.88,
+        genres: ['Pop', 'Soul'],
+        releaseDate: '2011-01-24',
+        license: 'Spotify',
+        audioType: 'preview'
+      },
+      {
+        id: 'youtube:demo2',
+        title: 'Despacito',
+        artist: 'Luis Fonsi ft. Daddy Yankee',
+        album: 'Vida',
+        duration: 229,
+        url: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+        previewUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+        coverUrl: 'https://i.ytimg.com/vi/kJQP7kiw5Fk/maxresdefault.jpg',
+        source: 'youtube' as const,
+        explicit: false,
+        popularity: 0.96,
+        genres: ['Latin', 'Reggaeton'],
+        releaseDate: '2017-01-12',
+        license: 'YouTube',
+        audioType: 'web'
       }
     ];
 
-    return demoTracks.slice(0, limit);
+    // Shuffle and return requested number
+    const shuffled = demoTracks.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, limit);
   }
 
   async getRecommendations(trackId: string, limit: number = 20): Promise<Track[]> {

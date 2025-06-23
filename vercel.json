@@ -1,7 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run vercel-build",
-  "outputDirectory": "apps/web/dist",
+  "rootDirectory": "apps/web",
   "framework": "vite",
   "routes": [
     {

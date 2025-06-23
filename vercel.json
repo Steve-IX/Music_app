@@ -27,6 +27,5 @@
       "dest": "/apps/web/dist/index.html"
     }
   ],
-  "monorepo": true,
   "root": "apps/web"
 } 

@@ -132,29 +132,36 @@ class AudioPlayerService {
 
       this.setState({ loading: true, error: null });
 
-      // Enhanced audio source detection
-      const isSpotifyTrack = trackId?.startsWith('spotify:') || url.includes('spotify.com');
-      const isSpotifyPreview = url.includes('scdn.co') || url.includes('p.scdn.co');
-      const isYouTubeTrack = trackId?.startsWith('youtube:') || url.includes('youtube.com') || url.includes('youtu.be');
-      const isJamendoTrack = trackId?.startsWith('jamendo:') || url.includes('jamendo.com');
+      // Enhanced audio source detection - prioritize preview URLs
+      const hasRealAudio = url && url !== '' && url !== 'demo-audio' && !url.includes('demo') && (url.startsWith('http') || url.startsWith('blob:'));
+      
+      // Special handling for different audio sources
+      const isSpotifyPreview = url.includes('scdn.co') || (url.includes('spotify.com') && !url.includes('open.spotify.com'));
+      const isSpotifyWebUrl = url.includes('open.spotify.com');
+      const isJamendoStream = url.includes('jamendo.com') || url.includes('jamendo');
+      const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be') || url.includes('youtube');
+      const isYouTubeVideoId = /^[a-zA-Z0-9_-]{11}$/.test(url); // YouTube video ID pattern
+      const isPreviewUrl = isSpotifyPreview || url.includes('preview') || url.includes('sample');
       const isAudioFile = url.match(/\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i);
-      const hasRealAudio = url && url !== '' && !url.includes('demo');
+      const isStreamUrl = url.includes('stream') || url.includes('audio') || url.includes('media');
 
       console.log('🎵 Loading track:', {
         url,
         trackId,
         duration,
-        isSpotifyTrack,
+        hasRealAudio,
         isSpotifyPreview,
-        isYouTubeTrack,
-        isJamendoTrack,
+        isSpotifyWebUrl,
+        isJamendoStream,
+        isYouTubeUrl,
+        isPreviewUrl,
         isAudioFile,
-        hasRealAudio
+        isStreamUrl
       });
 
-      // Handle empty or demo URLs
-      if (!hasRealAudio) {
-        console.log('🎵 Using simulation mode for track without audio URL');
+      // Handle empty or invalid URLs - fallback to simulation
+      if (!url || url === '' || url === 'demo-audio') {
+        console.log('🎵 No audio URL provided - using simulation mode');
         this.currentSource = 'simulation';
         this.isSimulationMode = true;
         this.currentTrackId = trackId || 'demo-track';
@@ -164,116 +171,280 @@ class AudioPlayerService {
         return;
       }
 
-      // Handle Spotify tracks
-      if (isSpotifyTrack && !isSpotifyPreview) {
+      // Handle Spotify Web URLs - try to play within site first
+      if (isSpotifyWebUrl || (trackId && trackId.startsWith('spotify:'))) {
+        console.log('🎵 Spotify track detected - attempting in-site playback');
+        this.currentSource = 'spotify';
+        this.currentTrackId = trackId || this.extractSpotifyId(url);
+        
         if (this.spotifyPlayer) {
           try {
-            const spotifyId = trackId?.split(':')[1] || this.extractSpotifyId(url);
-            await this.spotifyPlayer.loadTrack(spotifyId);
-            this.currentSource = 'spotify';
+            if (this.currentTrackId?.startsWith('spotify:')) {
+              this.currentTrackId = this.currentTrackId.split(':')[1];
+            }
+            await this.spotifyPlayer.loadTrack(this.currentTrackId);
+            console.log('✅ Spotify track loaded in-site');
             this.setState({ loading: false });
             resolve();
             return;
           } catch (error: any) {
-            console.warn('⚠️ Spotify playback failed:', error);
-            // If premium required but preview available, use preview
-            if (error.message.includes('Premium') && isSpotifyPreview) {
-              console.log('🎵 Falling back to preview URL');
-            } else {
-              this.setState({ 
-                loading: false,
-                error: error.message
-              });
-              resolve();
-              return;
+            console.warn('⚠️ Spotify in-site playback failed:', error);
+            if (error.message.includes('Premium')) {
+              // If premium is required, try to play preview if available
+              if (isSpotifyPreview) {
+                console.log('🎵 Falling back to preview URL');
+                this.currentSource = 'howler';
+                await this.loadPreviewTrack(url);
+                resolve();
+                return;
+              }
             }
-          }
-        }
-      }
-
-      // Handle YouTube tracks
-      if (isYouTubeTrack) {
-        try {
-          const videoId = this.extractVideoId(url);
-          if (videoId) {
-            this.loadYouTubeTrack(videoId);
-            this.currentSource = 'youtube';
+            this.setState({ 
+              loading: false,
+              error: error.message
+            });
             resolve();
             return;
           }
-        } catch (error) {
-          console.error('❌ YouTube playback failed:', error);
+        } else {
+          console.warn('⚠️ Spotify player not available');
           this.setState({ 
             loading: false,
-            error: 'Failed to load YouTube track'
+            error: 'Spotify player not available - please try again'
           });
           resolve();
           return;
         }
       }
 
-      // Handle audio files and previews with Howler
-      try {
-        console.log('🎵 Loading audio track with Howler');
+      // Handle Spotify Preview URLs - use Howler.js
+      if (isSpotifyPreview) {
+        console.log('🎵 Loading real audio track (preview/stream)');
         this.currentSource = 'howler';
         this.isSimulationMode = false;
-        this.currentTrackId = trackId || url;
-
-        this.currentHowl = new Howl({
-          src: [url],
-          html5: true,
-          preload: true,
-          volume: this.state.volume / 100,
-          onload: () => {
-            console.log('✅ Audio loaded successfully');
-            this.setState({ 
-              loading: false, 
-              duration: this.currentHowl?.duration() || duration || 0,
-              error: null 
-            });
-            this.callbacks.onLoad?.();
-            resolve();
-          },
-          onloaderror: (id, error) => {
-            console.error('❌ Failed to load audio:', error);
-            this.setState({ 
-              loading: false, 
-              error: 'Failed to load audio track'
-            });
-            this.callbacks.onLoadError?.(error);
-            resolve();
-          },
-          onplay: () => {
-            this.setState({ isPlaying: true });
-            this.startTimeUpdate();
-            this.callbacks.onPlay?.();
-          },
-          onpause: () => {
-            this.setState({ isPlaying: false });
-            this.stopTimeUpdate();
-            this.callbacks.onPause?.();
-          },
-          onend: () => {
-            this.setState({ isPlaying: false, currentTime: 0 });
-            this.stopTimeUpdate();
-            this.callbacks.onEnd?.();
-          },
-          onstop: () => {
-            this.setState({ isPlaying: false, currentTime: 0 });
-            this.stopTimeUpdate();
-          },
-          onseek: () => {
-            this.callbacks.onSeek?.(this.currentHowl?.seek() || 0);
-          }
-        });
-      } catch (error) {
-        console.error('❌ Failed to initialize audio:', error);
-        this.setState({ 
-          loading: false,
-          error: 'Failed to initialize audio player'
-        });
-        resolve();
+        this.currentTrackId = trackId || 'spotify-preview';
+        
+        try {
+          this.currentHowl = new Howl({
+            src: [url],
+            html5: true,
+            preload: true,
+            volume: this.state.volume / 100,
+            onload: () => {
+              console.log('✅ Audio loaded successfully');
+              this.setState({ 
+                loading: false, 
+                duration: this.currentHowl?.duration() || 0,
+                error: null 
+              });
+              this.callbacks.onLoad?.();
+              resolve();
+            },
+            onloaderror: (id, error) => {
+              console.error('❌ Failed to load audio track:', error);
+              this.setState({ 
+                loading: false, 
+                error: `Failed to load audio: ${error}` 
+              });
+              this.callbacks.onLoadError?.(error);
+              resolve();
+            },
+            onplay: () => {
+              this.setState({ isPlaying: true });
+              this.startTimeUpdate();
+              this.callbacks.onPlay?.();
+            },
+            onpause: () => {
+              this.setState({ isPlaying: false });
+              this.stopTimeUpdate();
+              this.callbacks.onPause?.();
+            },
+            onend: () => {
+              this.setState({ isPlaying: false, currentTime: 0 });
+              this.stopTimeUpdate();
+              this.callbacks.onEnd?.();
+            },
+            onstop: () => {
+              this.setState({ isPlaying: false, currentTime: 0 });
+              this.stopTimeUpdate();
+            },
+            onseek: () => {
+              this.callbacks.onSeek?.(this.currentHowl?.seek() || 0);
+            }
+          });
+        } catch (error) {
+          console.error('❌ Error creating Howl instance:', error);
+          this.setState({ 
+            loading: false, 
+            error: `Audio creation error: ${error}` 
+          });
+          resolve();
+        }
+        return;
       }
+
+      // Handle Jamendo streams - use Howler.js
+      if (isJamendoStream) {
+        console.log('🎵 Loading Jamendo stream');
+        this.currentSource = 'howler';
+        this.isSimulationMode = false;
+        this.currentTrackId = trackId || 'jamendo-stream';
+        
+        try {
+          this.currentHowl = new Howl({
+            src: [url],
+            html5: true,
+            preload: true,
+            volume: this.state.volume / 100,
+            onload: () => {
+              console.log('✅ Jamendo stream loaded successfully');
+              this.setState({ 
+                loading: false, 
+                duration: this.currentHowl?.duration() || 0,
+                error: null 
+              });
+              this.callbacks.onLoad?.();
+              resolve();
+            },
+            onloaderror: (id, error) => {
+              console.error('❌ Failed to load Jamendo stream:', error);
+              this.setState({ 
+                loading: false, 
+                error: `Failed to load stream: ${error}` 
+              });
+              this.callbacks.onLoadError?.(error);
+              resolve();
+            },
+            onplay: () => {
+              this.setState({ isPlaying: true });
+              this.startTimeUpdate();
+              this.callbacks.onPlay?.();
+            },
+            onpause: () => {
+              this.setState({ isPlaying: false });
+              this.stopTimeUpdate();
+              this.callbacks.onPause?.();
+            },
+            onend: () => {
+              this.setState({ isPlaying: false, currentTime: 0 });
+              this.stopTimeUpdate();
+              this.callbacks.onEnd?.();
+            },
+            onstop: () => {
+              this.setState({ isPlaying: false, currentTime: 0 });
+              this.stopTimeUpdate();
+            },
+            onseek: () => {
+              this.callbacks.onSeek?.(this.currentHowl?.seek() || 0);
+            }
+          });
+        } catch (error) {
+          console.error('❌ Error creating Howl instance for Jamendo:', error);
+          this.setState({ 
+            loading: false, 
+            error: `Jamendo stream error: ${error}` 
+          });
+          resolve();
+        }
+        return;
+      }
+
+      // Handle YouTube URLs - use YouTube player
+      if (isYouTubeUrl || isYouTubeVideoId) {
+        console.log('🎵 YouTube URL detected - using YouTube player');
+        this.currentSource = 'youtube';
+        this.isSimulationMode = false;
+        this.currentTrackId = trackId || 'youtube';
+        
+        try {
+          const videoId = isYouTubeVideoId ? url : this.extractVideoId(url);
+          if (videoId) {
+            this.loadYouTubeTrack(url);
+              this.setState({ loading: false });
+              resolve();
+          } else {
+            throw new Error('Invalid YouTube URL');
+          }
+        } catch (error) {
+          console.error('❌ YouTube URL processing error:', error);
+          this.setState({ loading: false, error: `YouTube error: ${error}` });
+          resolve();
+        }
+        return;
+      }
+
+      // Handle other real audio URLs
+      if (hasRealAudio && !isSpotifyWebUrl) {
+        console.log('🎵 Loading real audio track (preview/stream)');
+        this.currentSource = 'howler';
+        this.isSimulationMode = false;
+        this.currentTrackId = trackId || 'audio-stream';
+        
+        try {
+          this.currentHowl = new Howl({
+            src: [url],
+            html5: true,
+            preload: true,
+            volume: this.state.volume / 100,
+            onload: () => {
+              console.log('✅ Audio loaded successfully');
+              this.setState({ 
+                loading: false, 
+                duration: this.currentHowl?.duration() || 0,
+                error: null 
+              });
+              this.callbacks.onLoad?.();
+              resolve();
+            },
+            onloaderror: (id, error) => {
+              console.error('❌ Failed to load audio track:', error);
+              this.setState({ 
+                loading: false, 
+                error: `Failed to load audio: ${error}` 
+              });
+              this.callbacks.onLoadError?.(error);
+              resolve();
+            },
+            onplay: () => {
+              this.setState({ isPlaying: true });
+              this.startTimeUpdate();
+              this.callbacks.onPlay?.();
+            },
+            onpause: () => {
+              this.setState({ isPlaying: false });
+              this.stopTimeUpdate();
+              this.callbacks.onPause?.();
+            },
+            onend: () => {
+              this.setState({ isPlaying: false, currentTime: 0 });
+              this.stopTimeUpdate();
+              this.callbacks.onEnd?.();
+            },
+            onstop: () => {
+              this.setState({ isPlaying: false, currentTime: 0 });
+              this.stopTimeUpdate();
+            },
+            onseek: () => {
+              this.callbacks.onSeek?.(this.currentHowl?.seek() || 0);
+            }
+          });
+        } catch (error) {
+          console.error('❌ Error creating Howl instance:', error);
+          this.setState({ 
+            loading: false, 
+            error: `Audio creation error: ${error}` 
+          });
+          resolve();
+        }
+        return;
+      }
+
+      // Fallback to simulation mode
+      console.log('🎵 No real audio available, using simulation mode');
+      this.currentSource = 'simulation';
+      this.loadSimulationMode(trackId || 'demo', duration || 240);
+      this.setState({ loading: false });
+      resolve();
     });
   }
 

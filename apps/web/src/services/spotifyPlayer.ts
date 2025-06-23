@@ -82,19 +82,12 @@ class SpotifyPlayerService {
   }
 
   private async initializePlayer(): Promise<void> {
-    if (!this.authService.isAuthenticated()) {
-      throw new Error('Spotify authentication required');
-    }
-
     if (this.isInitialized) {
-      console.log('✅ Spotify player already initialized');
+      console.log('🎵 Spotify player already initialized');
       return;
     }
 
     try {
-      console.log('🎵 Initializing Spotify player...');
-      
-      // Wait for SDK to be ready
       if (!this.isSdkLoaded) {
         await new Promise<void>((resolve) => {
           window.onSpotifyWebPlaybackSDKReady = () => {
@@ -110,44 +103,28 @@ class SpotifyPlayerService {
         throw new Error('No access token available');
       }
 
-      // Initialize player
+      // Create player instance
       this.player = new window.Spotify.Player({
         name: 'MusicStream Web Player',
-        getOAuthToken: cb => cb(accessToken),
+        getOAuthToken: (cb: (token: string) => void) => cb(accessToken),
         volume: this.state.volume / 100
       });
 
-      // Error handling
-      this.player.addListener('initialization_error', ({ message }) => {
-        console.error('❌ Spotify player initialization error:', message);
-        this.setState({ error: 'Failed to initialize player: ' + message });
+      // Setup player event listeners
+      this.player.addListener('ready', ({ device_id }: { device_id: string }) => {
+        console.log('✅ Spotify player ready with device ID:', device_id);
+        this.setState({ deviceId: device_id, error: null });
+        this.isInitialized = true;
+        console.log('🎉 Spotify Web Playback SDK ready! You can now play tracks in-site.');
       });
 
-      this.player.addListener('authentication_error', ({ message }) => {
-        console.error('❌ Spotify authentication error:', message);
-        this.setState({ error: 'Authentication failed: ' + message });
-        // Try to refresh token
-        this.authService.refreshTokens().catch(console.error);
+      this.player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+        console.warn('⚠️ Spotify player device no longer ready:', device_id);
+        this.setState({ deviceId: null });
       });
 
-      this.player.addListener('account_error', ({ message }) => {
-        console.error('❌ Spotify account error:', message);
-        if (message.includes('premium')) {
-          this.setState({ error: 'Spotify Premium required for playback' });
-        } else {
-          this.setState({ error: 'Account error: ' + message });
-        }
-      });
-
-      this.player.addListener('playback_error', ({ message }) => {
-        console.error('❌ Spotify playback error:', message);
-        this.setState({ error: 'Playback error: ' + message });
-      });
-
-      // Playback status updates
-      this.player.addListener('player_state_changed', state => {
+      this.player.addListener('player_state_changed', (state: any) => {
         if (!state) {
-          console.log('⚠️ No playback state available');
           return;
         }
 
@@ -155,48 +132,34 @@ class SpotifyPlayerService {
           isPlaying: !state.paused,
           currentTime: state.position / 1000,
           duration: state.duration / 1000,
-          loading: false,
-          error: null
+          trackId: state.track_window?.current_track?.id || null
         });
 
         this.callbacks.onStateChange?.(state);
       });
 
-      // Ready
-      this.player.addListener('ready', ({ device_id }) => {
-        console.log('✅ Spotify player ready with device ID:', device_id);
-        this.setState({ deviceId: device_id, error: null });
-        this.isInitialized = true;
-
-        // Transfer playback to this device
-        const accessToken = this.authService.getAccessToken();
-        if (accessToken) {
-          fetch('https://api.spotify.com/v1/me/player', {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              device_ids: [device_id],
-              play: false
-            })
-          }).then(() => {
-            console.log('🎉 Spotify Web Playback SDK ready! You can now play tracks in-site.');
-          }).catch(error => {
-            console.warn('⚠️ Failed to transfer playback:', error);
-          });
-        }
+      this.player.addListener('initialization_error', ({ message }: { message: string }) => {
+        console.error('❌ Spotify player initialization error:', message);
+        this.setState({ error: `Initialization error: ${message}` });
       });
 
-      // Not Ready
-      this.player.addListener('not_ready', ({ device_id }) => {
-        console.warn('⚠️ Device ID has gone offline:', device_id);
-        this.setState({ deviceId: null });
+      this.player.addListener('authentication_error', ({ message }: { message: string }) => {
+        console.error('❌ Spotify player authentication error:', message);
+        this.setState({ error: `Authentication error: ${message}` });
+        this.authService.refreshTokens();
+      });
+
+      this.player.addListener('account_error', ({ message }: { message: string }) => {
+        console.error('❌ Spotify player account error:', message);
+        this.setState({ error: `Premium required: ${message}` });
+      });
+
+      this.player.addListener('playback_error', ({ message }: { message: string }) => {
+        console.error('❌ Spotify player playback error:', message);
+        this.setState({ error: `Playback error: ${message}` });
       });
 
       // Connect to the player
-      console.log('🎵 Connecting to Spotify player...');
       const connected = await this.player.connect();
       
       if (connected) {
@@ -207,11 +170,7 @@ class SpotifyPlayerService {
 
     } catch (error: any) {
       console.error('❌ Failed to initialize Spotify player:', error);
-      this.isInitialized = false;
-      this.setState({ 
-        error: error.message || 'Failed to initialize Spotify player',
-        loading: false 
-      });
+      this.setState({ error: error.message });
       throw error;
     }
   }
@@ -253,7 +212,7 @@ class SpotifyPlayerService {
 
       const trackData = await response.json();
       
-      // Transfer playback to our device
+      // Transfer playback to our device with a longer delay
       await fetch('https://api.spotify.com/v1/me/player', {
         method: 'PUT',
         headers: {
@@ -266,8 +225,8 @@ class SpotifyPlayerService {
         })
       });
 
-      // Wait a moment for the device transfer to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait longer for the device transfer to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Start playing the track
       const playResponse = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.state.deviceId}`, {
@@ -283,45 +242,24 @@ class SpotifyPlayerService {
       });
 
       if (!playResponse.ok) {
-        const errorData = await playResponse.json();
-        let errorMessage = `Playback failed: ${playResponse.statusText}`;
-        
-        if (errorData.error?.reason === 'PREMIUM_REQUIRED') {
-          errorMessage = 'Spotify Premium is required for full playback';
-        } else if (errorData.error?.reason === 'NO_ACTIVE_DEVICE') {
-          errorMessage = 'No active device found - please try again';
+        if (playResponse.status === 404) {
+          throw new Error('No active device found. Please try again.');
+        } else if (playResponse.status === 403) {
+          throw new Error('Spotify Premium required to play full tracks.');
+        } else {
+          const errorData = await playResponse.json();
+          throw new Error(errorData.error?.message || 'Failed to play track');
         }
-        
-        throw new Error(errorMessage);
       }
 
-      console.log('✅ Spotify track loaded successfully:', trackId);
-      this.setState({ 
-        trackId,
-        loading: false,
-        error: null,
-        duration: trackData.duration_ms / 1000
-      });
-      this.callbacks.onLoad?.();
-
+      this.setState({ loading: false, error: null });
+      
     } catch (error: any) {
       console.error('❌ Failed to load Spotify track:', error);
-      
-      let userMessage = error.message;
-      
-      if (error.message.includes('Premium')) {
-        userMessage = 'Premium required for Spotify playback';
-      } else if (error.message.includes('device')) {
-        userMessage = 'Playback device error - please try again';
-        // Attempt to reinitialize the player
-        setTimeout(() => this.initializePlayer(), 2000);
-      }
-      
       this.setState({ 
-        error: userMessage,
-        loading: false 
+        loading: false, 
+        error: error.message || 'Failed to load track'
       });
-      this.callbacks.onLoadError?.(error);
       throw error;
     }
   }

@@ -6,10 +6,26 @@ import MainContent from './components/MainContent';
 import MusicPlayer from './components/MusicPlayer';
 import { ThemeProvider } from './context/ThemeContext';
 import { MusicProvider } from './context/MusicContext';
+import SpotifyAuthService from './services/spotifyAuth';
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Initialize Spotify authentication on app start
+  useEffect(() => {
+    const initializeSpotifyAuth = async () => {
+      const spotifyAuth = new SpotifyAuthService();
+      try {
+        await spotifyAuth.initialize();
+        console.log('✅ Spotify authentication service initialized');
+      } catch (error) {
+        console.error('❌ Error initializing Spotify auth:', error);
+      }
+    };
+
+    initializeSpotifyAuth();
+  }, []);
 
   // Handle responsive sidebar
   useEffect(() => {

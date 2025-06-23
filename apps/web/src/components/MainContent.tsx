@@ -255,17 +255,17 @@ const MainContent: React.FC<MainContentProps> = ({ searchQuery = '' }) => {
       }
     } else {
       // This is a demo track
-      const track = {
-        id: item.id,
-        title: item.title,
-        artist: item.artist,
+    const track = {
+      id: item.id,
+      title: item.title,
+      artist: item.artist,
         album: item.type === 'Album' ? item.title : item.album || 'Single',
         duration: item.type === 'Track' ? item.duration : 240,
-        url: '',
+      url: '',
         coverUrl: `https://picsum.photos/400/400?random=${item.id}`,
         source: 'demo' as const,
-      };
-      dispatch({ type: 'PLAY_TRACK', payload: track });
+    };
+    dispatch({ type: 'PLAY_TRACK', payload: track });
       showToast(`🎵 Demo: "${item.title}" by ${item.artist} - Simulation mode`, 'info');
     }
   };

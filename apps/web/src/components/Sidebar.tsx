@@ -206,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           </div>
         </div>
       )}
-    </div>
+      </div>
   );
 };
 

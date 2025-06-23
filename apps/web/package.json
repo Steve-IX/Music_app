@@ -21,7 +21,8 @@
     "lighthouse": "lhci autorun",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "clean": "rimraf dist .vite node_modules/.vite"
+    "clean": "rimraf dist .vite node_modules/.vite",
+    "vercel-build": "npm install && npm run build"
   },
   "dependencies": {
     "@apollo/client": "^3.8.7",

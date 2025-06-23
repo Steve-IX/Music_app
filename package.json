@@ -6,14 +6,15 @@
   "author": "CodeSmith-Maestro",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "dev": "cd apps/web && npm run dev",
     "build": "cd apps/web && npm install && npm run build",
     "preview": "cd apps/web && npm run preview",
-    "vercel-build": "cd apps/web && npm install && npm run build"
+    "vercel-build": "npm install && cd apps/web && npm install && npm run build",
+    "vercel-install": "npm install"
   },
   "workspaces": [
     "apps/*",

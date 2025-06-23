@@ -91,12 +91,21 @@ class SpotifyService {
         source: 'spotify' as const,
         explicit: item.explicit || false,
         popularity: item.popularity / 100,
-        genres: [],
+        genres: item.artists?.[0]?.genres || [],
         releaseDate: item.album?.release_date,
         license: 'Spotify',
-        audioType: 'web',
+        audioType: item.preview_url ? 'preview' : 'web',
         hasAudio: true
       }));
+
+      // Sort tracks by popularity and availability of preview
+      tracks.sort((a, b) => {
+        // Prioritize tracks with preview URLs
+        if (a.previewUrl && !b.previewUrl) return -1;
+        if (!a.previewUrl && b.previewUrl) return 1;
+        // Then sort by popularity
+        return (b.popularity || 0) - (a.popularity || 0);
+      });
 
       const artists: Artist[] = (response.data.artists?.items || []).map((item: any) => ({
         id: `spotify:${item.id}`,
@@ -118,7 +127,7 @@ class SpotifyService {
         source: 'spotify'
       }));
 
-      console.log(`📊 Spotify search results: ${tracks.length} tracks, ${artists.length} artists, ${albums.length} albums`);
+      console.log(`📊 Spotify search results: ${tracks.length} tracks (${tracks.filter(t => t.previewUrl).length} with previews), ${artists.length} artists, ${albums.length} albums`);
       return { tracks, artists, albums };
     } catch (error) {
       console.error('Spotify search failed:', error);

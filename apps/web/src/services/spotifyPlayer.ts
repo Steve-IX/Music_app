@@ -319,7 +319,20 @@ class SpotifyPlayerService {
 
       console.log('🎵 Loading Spotify track:', trackId);
       
-      // First, transfer playback to our device
+      // First, ensure the track exists and is playable
+      const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Track not found or not available: ${response.statusText}`);
+      }
+
+      const trackData = await response.json();
+      
+      // Transfer playback to our device
       await fetch('https://api.spotify.com/v1/me/player', {
         method: 'PUT',
         headers: {
@@ -332,42 +345,30 @@ class SpotifyPlayerService {
         })
       });
 
-      // Then start playing the track
-      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.state.deviceId}`, {
+      // Wait a moment for the device transfer to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Start playing the track
+      const playResponse = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.state.deviceId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          uris: [`spotify:track:${trackId}`]
+          uris: [`spotify:track:${trackId}`],
+          position_ms: 0
         })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      if (!playResponse.ok) {
+        const errorData = await playResponse.json();
+        let errorMessage = `Playback failed: ${playResponse.statusText}`;
         
-        switch (response.status) {
-          case 401:
-            errorMessage = 'Authentication expired - please reconnect to Spotify';
-            break;
-          case 403:
-            errorMessage = 'Premium required for this track';
-            break;
-          case 404:
-            errorMessage = 'Track not found or unavailable';
-            break;
-          case 429:
-            errorMessage = 'Too many requests - please wait a moment';
-            break;
-          case 502:
-          case 503:
-          case 504:
-            errorMessage = 'Spotify service temporarily unavailable';
-            break;
-          default:
-            errorMessage = `Playback error: ${response.statusText}`;
+        if (errorData.error?.reason === 'PREMIUM_REQUIRED') {
+          errorMessage = 'Spotify Premium is required for full playback';
+        } else if (errorData.error?.reason === 'NO_ACTIVE_DEVICE') {
+          errorMessage = 'No active device found - please try again';
         }
         
         throw new Error(errorMessage);
@@ -377,24 +378,22 @@ class SpotifyPlayerService {
       this.setState({ 
         trackId,
         loading: false,
-        error: null
+        error: null,
+        duration: trackData.duration_ms / 1000
       });
       this.callbacks.onLoad?.();
 
     } catch (error: any) {
       console.error('❌ Failed to load Spotify track:', error);
       
-      let userMessage = `Failed to load track: ${error.message}`;
+      let userMessage = error.message;
       
       if (error.message.includes('Premium')) {
         userMessage = 'Premium required for Spotify playback';
-      } else if (error.message.includes('unavailable')) {
-        userMessage = 'Track unavailable in your region';
-      } else if (error.message.includes('Authentication')) {
-        userMessage = 'Please reconnect to Spotify';
-        setTimeout(() => {
-          this.authService.startAuth();
-        }, 1000);
+      } else if (error.message.includes('device')) {
+        userMessage = 'Playback device error - please try again';
+        // Attempt to reinitialize the player
+        setTimeout(() => this.initializePlayer(), 2000);
       }
       
       this.setState({ 

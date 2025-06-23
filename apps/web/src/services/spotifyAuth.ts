@@ -24,8 +24,8 @@ class SpotifyAuthService {
   constructor() {
     const isProd = window.location.hostname !== 'localhost';
     const redirectUri = isProd 
-      ? 'https://music-app-eta-vert.vercel.app/spotify-callback'
-      : `${window.location.origin}/spotify-callback`;
+      ? 'https://music-app-eta-vert.vercel.app/spotify-callback.html'
+      : `${window.location.origin}/spotify-callback.html`;
 
     this.config = {
       clientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
@@ -46,6 +46,24 @@ class SpotifyAuthService {
         'web-playback-sdk'
       ]
     };
+
+    // Add event listener for auth callback
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'SPOTIFY_AUTH_SUCCESS') {
+        const code = sessionStorage.getItem('spotify_auth_code');
+        if (code) {
+          this.exchangeCodeForTokens(code)
+            .then(() => {
+              console.log('✅ Successfully authenticated with Spotify');
+              sessionStorage.removeItem('spotify_auth_code');
+              window.location.reload();
+            })
+            .catch(error => {
+              console.error('❌ Error exchanging code:', error);
+            });
+        }
+      }
+    });
 
     console.log('🔐 Spotify Auth Config:', {
       clientId: this.config.clientId ? '✅ Set' : '❌ Missing',
@@ -119,9 +137,26 @@ class SpotifyAuthService {
     authUrl.searchParams.append('redirect_uri', this.config.redirectUri);
     authUrl.searchParams.append('scope', this.config.scopes.join(' '));
     authUrl.searchParams.append('state', state);
+    authUrl.searchParams.append('show_dialog', 'true');
 
-    console.log('🔐 Redirecting to Spotify OAuth...');
-    window.location.href = authUrl.toString();
+    // Open auth window as a popup
+    const width = 500;
+    const height = 700;
+    const left = (window.screen.width / 2) - (width / 2);
+    const top = (window.screen.height / 2) - (height / 2);
+
+    const authWindow = window.open(
+      authUrl.toString(),
+      'Spotify Login',
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+
+    if (authWindow) {
+      console.log('🔐 Opened Spotify auth popup');
+    } else {
+      console.error('❌ Popup blocked - redirecting instead');
+      window.location.href = authUrl.toString();
+    }
   }
 
   // Exchange authorization code for tokens

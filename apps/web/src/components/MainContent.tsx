@@ -287,9 +287,9 @@ const MainContent: React.FC<MainContentProps> = ({ searchQuery = '' }) => {
       } else if (item.apiTrack.url && item.apiTrack.url.includes('open.spotify.com')) {
         // Open in Spotify app/browser
         window.open(item.apiTrack.url, '_blank');
-        showToast(`Opening "${item.title}" in Spotify app`, 'info');
+        showToast(`Opening "${item.title}" in Spotify app - Premium required for in-site playback`, 'info');
       } else {
-        showToast('No preview available for this Spotify track', 'info');
+        showToast('No preview available for this Spotify track - Premium required for full playback', 'info');
       }
     } else if (item.apiTrack?.previewUrl) {
       try {

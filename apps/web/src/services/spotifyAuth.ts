@@ -57,7 +57,8 @@ class SpotifyAuthService {
     console.log('🔐 Spotify Auth Config:', {
       clientId: this.config.clientId ? '✅ Set' : '❌ Missing',
       clientSecret: this.config.clientSecret ? '✅ Set' : '❌ Missing',
-      redirectUri: this.config.redirectUri
+      redirectUri: this.config.redirectUri,
+      note: '⚠️ Web Playback SDK requires Spotify Premium account'
     });
   }
 

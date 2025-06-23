@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://music-app-eta-vert.vercel.app/sitemap.xml
+
+# Block admin areas
+Disallow: /api/
+Disallow: /.well-known/ 

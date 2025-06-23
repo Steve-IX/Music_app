@@ -214,25 +214,32 @@ class YouTubeService {
         },
       });
 
+      if (!response.data || !response.data.items) {
+        console.log('📊 YouTube search results: 0 tracks (no items in response)');
+        return { tracks: [] };
+      }
+
       const tracks: Track[] = response.data.items.map((item: any) => {
         const videoId = item.id.videoId;
-        const duration = this.parseDuration(item.snippet.duration || 'PT3M');
+        const duration = this.parseDuration(item.snippet?.duration || 'PT3M');
         
         return {
           id: `youtube:${videoId}`,
-          title: item.snippet.title.replace(/\(Official Music Video\)|\(Official Video\)|\(Official\)|\(Music Video\)|\(MV\)/gi, '').trim(),
-          artist: item.snippet.channelTitle,
+          title: (item.snippet?.title || 'Unknown Title').replace(/\(Official Music Video\)|\(Official Video\)|\(Official\)|\(Music Video\)|\(MV\)/gi, '').trim(),
+          artist: item.snippet?.channelTitle || 'Unknown Artist',
           album: 'YouTube Music',
           duration: duration,
           url: `https://www.youtube.com/watch?v=${videoId}`,
           previewUrl: `https://www.youtube.com/watch?v=${videoId}`,
-          coverUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+          coverUrl: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
           source: 'youtube' as const,
           explicit: false,
           popularity: 0.8,
           genres: ['Music'],
-          releaseDate: item.snippet.publishedAt,
-          license: 'YouTube'
+          releaseDate: item.snippet?.publishedAt,
+          license: 'YouTube',
+          audioType: 'web',
+          hasAudio: true
         };
       });
 

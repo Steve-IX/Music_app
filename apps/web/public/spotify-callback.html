@@ -6,129 +6,83 @@
   <title>Spotify Authentication</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
       margin: 0;
-      background: linear-gradient(135deg, #1DB954, #1ed760);
-      color: white;
-      text-align: center;
+      background-color: #121212;
+      color: #ffffff;
     }
     .container {
-      max-width: 400px;
-      padding: 32px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-    h1 {
-      margin: 0 0 16px;
-      font-size: 24px;
-      font-weight: 600;
-    }
-    p {
-      margin: 0 0 24px;
-      opacity: 0.9;
+      text-align: center;
+      padding: 2rem;
     }
     .spinner {
       width: 40px;
       height: 40px;
-      margin: 0 auto;
-      border: 3px solid rgba(255, 255, 255, 0.3);
+      border: 4px solid #1DB954;
+      border-top: 4px solid transparent;
       border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
     }
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .message {
+      margin: 1rem 0;
+      font-size: 1.2rem;
     }
     .error {
-      color: #ff6b6b;
-      background: rgba(255, 107, 107, 0.1);
-      padding: 16px;
-      border-radius: 8px;
-      margin-top: 16px;
+      color: #ff5252;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎵 Spotify Authentication</h1>
-    <p id="status">Processing authentication...</p>
-    <div id="spinner" class="spinner"></div>
-    <div id="error" class="error" style="display: none;"></div>
+    <div class="spinner"></div>
+    <div class="message">Completing Spotify authentication...</div>
   </div>
-
   <script>
-    (function() {
-      const statusEl = document.getElementById('status');
-      const spinnerEl = document.getElementById('spinner');
-      const errorEl = document.getElementById('error');
+    // Function to show error message
+    function showError(message) {
+      document.querySelector('.spinner').style.display = 'none';
+      const messageEl = document.querySelector('.message');
+      messageEl.textContent = message;
+      messageEl.classList.add('error');
+    }
 
-      function showError(message) {
-        statusEl.textContent = 'Authentication failed';
-        spinnerEl.style.display = 'none';
-        errorEl.style.display = 'block';
-        errorEl.textContent = message;
+    // Function to handle successful authentication
+    function handleSuccess() {
+      // Close this window if it's a popup
+      if (window.opener) {
+        window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
+        window.close();
+      } else {
+        // Redirect back to the main app
+        window.location.href = '/';
       }
+    }
 
-      function showSuccess() {
-        statusEl.textContent = 'Authentication successful! Redirecting...';
-        spinnerEl.style.display = 'none';
-      }
+    // Check for errors
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
 
-      try {
-        // Get URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
-        const state = urlParams.get('state');
-
-        if (error) {
-          showError(`Spotify error: ${error}`);
-          setTimeout(() => {
-            window.close();
-          }, 3000);
-          return;
-        }
-
-        if (!code) {
-          showError('No authorization code received');
-          setTimeout(() => {
-            window.close();
-          }, 3000);
-          return;
-        }
-
-        // If we're in a popup, send data to parent
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'SPOTIFY_AUTH_SUCCESS',
-            code: code,
-            state: state
-          }, window.location.origin);
-          window.close();
-          return;
-        }
-
-        // If we're not in a popup, redirect to main app with params
-        showSuccess();
-        setTimeout(() => {
-          window.location.href = `/${window.location.search}`;
-        }, 1000);
-
-      } catch (err) {
-        console.error('Callback error:', err);
-        showError('An error occurred processing the authentication');
-        setTimeout(() => {
-          window.close();
-        }, 3000);
-      }
-    })();
+    if (error) {
+      showError(`Authentication failed: ${error}`);
+    } else if (!code) {
+      showError('No authorization code received');
+    } else {
+      // Store the code temporarily
+      sessionStorage.setItem('spotify_auth_code', code);
+      handleSuccess();
+    }
   </script>
 </body>
 </html> 

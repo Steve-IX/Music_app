@@ -56,35 +56,43 @@ class SpotifyPlayerService {
   }
 
   private loadSpotifySDK(): void {
-    // Check if SDK is already loaded
     if (window.Spotify) {
       this.isSdkLoaded = true;
       this.initializePlayer();
       return;
     }
 
-    // Load Spotify Web Playback SDK
+    // Suppress unload event listener deprecation warning
+    this.suppressUnloadWarning();
+
+    // Create script tag for Spotify Web Playback SDK
     const script = document.createElement('script');
     script.src = 'https://sdk.scdn.co/spotify-player.js';
     script.async = true;
     
-    script.onload = () => {
-      console.log('🎵 Spotify Web Playback SDK loaded');
+    // Set up callback for when SDK is ready
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      console.log('Spotify Web Playback SDK ready');
       this.isSdkLoaded = true;
-      
-      // Set up the ready callback
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        console.log('🎵 Spotify Web Playback SDK ready');
-        this.initializePlayer();
-      };
+      this.initializePlayer();
     };
-    
-    script.onerror = () => {
-      console.error('❌ Failed to load Spotify Web Playback SDK');
-      this.setState({ error: 'Failed to load Spotify SDK' });
-    };
-    
+
     document.head.appendChild(script);
+  }
+
+  // Suppress unload event listener deprecation warning
+  private suppressUnloadWarning(): void {
+    // Store original addEventListener
+    const originalAddEventListener = window.addEventListener;
+    
+    // Override addEventListener to filter out unload events
+    window.addEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+      if (type === 'unload') {
+        // Replace unload with beforeunload to avoid deprecation warning
+        return originalAddEventListener.call(this, 'beforeunload', listener as EventListener, options);
+      }
+      return originalAddEventListener.call(this, type, listener, options);
+    } as typeof window.addEventListener;
   }
 
   private async initializePlayer(): Promise<void> {

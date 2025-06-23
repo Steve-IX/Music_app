@@ -6,168 +6,18 @@
   "author": "CodeSmith-Maestro",
   "license": "MIT",
   "engines": {
-    "node": ">=22.0.0",
-    "npm": ">=10.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "cd apps/web && npm run dev",
+    "build": "cd apps/web && npm install && npm run build",
+    "preview": "cd apps/web && npm run preview",
+    "vercel-build": "cd apps/web && npm install && npm run build"
   },
   "workspaces": [
     "apps/*",
     "services/*",
-    "packages/*",
-    "tools/*"
-  ],
-  "scripts": {
-    "dev": "npm run dev:services & npm run dev:web",
-    "dev:web": "npm run dev --workspace=apps/web",
-    "dev:services": "concurrently \"npm run dev:auth\" \"npm run dev:library\" \"npm run dev:stream\" \"npm run dev:recommendations\" \"npm run dev:social\"",
-    "dev:auth": "npm run dev --workspace=services/auth",
-    "dev:library": "npm run dev --workspace=services/library",
-    "dev:stream": "npm run dev --workspace=services/stream",
-    "dev:recommendations": "npm run dev --workspace=services/recommendations",
-    "dev:social": "npm run dev --workspace=services/social",
-    "build": "npm run build:packages && npm run build:services && npm run build:apps",
-    "build:packages": "npm run build --workspace=packages/ui-kit && npm run build --workspace=packages/shared",
-    "build:services": "npm run build --workspaces --if-present",
-    "build:apps": "npm run build --workspace=apps/web",
-    "vercel-build": "cd apps/web && npm install && npm run build",
-    "test": "npm run test --workspaces --if-present",
-    "test:unit": "jest",
-    "test:integration": "npm run test:integration --workspaces --if-present",
-    "test:e2e": "playwright test",
-    "lint": "npm run lint --workspaces --if-present",
-    "lint:fix": "npm run lint:fix --workspaces --if-present",
-    "type-check": "npm run type-check --workspaces --if-present",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md,yml,yaml}\"",
-    "clean": "npm run clean --workspaces --if-present && rimraf node_modules",
-    "clean:deps": "npm run clean && find . -name node_modules -type d -exec rm -rf {} + 2>/dev/null || true",
-    "db:migrate": "npm run db:migrate --workspace=services/library",
-    "db:seed": "npm run db:seed --workspace=services/library",
-    "db:reset": "npm run db:reset --workspace=services/library",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "k8s:deploy": "kubectl apply -f k8s/",
-    "k8s:delete": "kubectl delete -f k8s/",
-    "terraform:plan": "cd terraform && terraform plan",
-    "terraform:apply": "cd terraform && terraform apply",
-    "terraform:destroy": "cd terraform && terraform destroy",
-    "prepare": "husky install",
-    "commitlint": "commitlint --edit",
-    "release": "semantic-release",
-    "audit": "npm audit --workspaces",
-    "audit:fix": "npm audit fix --workspaces",
-    "outdated": "npm outdated --workspaces",
-    "update": "npm update --workspaces",
-    "analyze": "npm run analyze --workspace=apps/web",
-    "lighthouse": "npm run lighthouse --workspace=apps/web",
-    "security": "npm run security --workspaces --if-present"
-  },
-  "devDependencies": {
-    "@commitlint/cli": "^18.4.3",
-    "@commitlint/config-conventional": "^18.4.3",
-    "@playwright/test": "^1.40.1",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@types/jest": "^29.5.8",
-    "@types/node": "^20.10.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.1",
-    "@typescript-eslint/parser": "^6.13.1",
-    "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3",
-    "dotenv": "^16.3.1",
-    "eslint": "^8.54.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-import": "^2.29.0",
-    "eslint-plugin-jest": "^27.6.0",
-    "eslint-plugin-jsx-a11y": "^6.8.0",
-    "eslint-plugin-prettier": "^5.0.1",
-    "eslint-plugin-react": "^7.33.2",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-security": "^1.7.1",
-    "husky": "^8.0.3",
-    "jest": "^29.7.0",
-    "lint-staged": "^15.2.0",
-    "nodemon": "^3.0.2",
-    "prettier": "^3.1.0",
-    "rimraf": "^5.0.5",
-    "semantic-release": "^22.0.8",
-    "ts-jest": "^29.1.1",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.3.2"
-  },
-  "optionalDependencies": {
-    "sharp": "^0.32.6"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "roots": [
-      "<rootDir>/packages",
-      "<rootDir>/services",
-      "<rootDir>/apps"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.ts",
-      "**/?(*.)+(spec|test).ts"
-    ],
-    "collectCoverageFrom": [
-      "**/*.ts",
-      "!**/*.d.ts",
-      "!**/node_modules/**",
-      "!**/dist/**",
-      "!**/build/**"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 90,
-        "functions": 90,
-        "lines": 90,
-        "statements": 90
-      }
-    }
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ]
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
-      "pre-push": "npm run test:unit && npm run lint"
-    }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/musicstream/musicstream.git"
-  },
-  "keywords": [
-    "music",
-    "streaming",
-    "audio",
-    "react",
-    "nodejs",
-    "typescript",
-    "graphql",
-    "microservices"
-  ],
-  "bugs": {
-    "url": "https://github.com/musicstream/musicstream/issues"
-  },
-  "homepage": "https://musicstream.com",
-  "funding": {
-    "type": "individual",
-    "url": "https://github.com/sponsors/codecrafter"
-  }
+    "packages/*"
+  ]
 } 

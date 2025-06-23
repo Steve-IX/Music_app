@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "chmod +x build.sh && ./build.sh",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "apps/web/dist",
   "framework": "vite",
   "routes": [

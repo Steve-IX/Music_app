@@ -79,6 +79,15 @@ class SpotifyService {
         },
       });
 
+      // Debug the response structure
+      console.log('🔍 Spotify API response:', response.data);
+
+      // Check if we have the expected structure
+      if (!response.data || typeof response.data !== 'object') {
+        console.error('❌ Spotify API returned invalid data structure');
+        return { tracks: [], artists: [], albums: [] };
+      }
+
       const tracks: Track[] = (response.data.tracks?.items || []).map((item: any) => ({
         id: `spotify:${item.id}`,
         title: item.name,
@@ -148,6 +157,15 @@ class JamendoService {
         },
       });
 
+      // Debug the response structure
+      console.log('🔍 Jamendo API response:', response.data);
+
+      // Check if we have the expected structure
+      if (!response.data || typeof response.data !== 'object') {
+        console.error('❌ Jamendo API returned invalid data structure');
+        return { tracks: [] };
+      }
+
       const tracks: Track[] = (response.data.results || []).map((item: any) => ({
         id: `jamendo:${item.id}`,
         title: item.name,
@@ -213,6 +231,15 @@ class YouTubeService {
           limit,
         },
       });
+
+      // Debug the response structure
+      console.log('🔍 YouTube API response:', response.data);
+
+      // Check if response has the expected structure
+      if (!response.data || !response.data.items || !Array.isArray(response.data.items)) {
+        console.error('❌ YouTube API returned unexpected structure:', response.data);
+        return { tracks: [] };
+      }
 
       const tracks: Track[] = response.data.items.map((item: any) => {
         const videoId = item.id.videoId;
@@ -415,19 +442,17 @@ class MusicApiService {
         }
       });
 
+      // Always mix in some demo content for a better experience
+      const demoTracks = this.getDemoTracks(Math.min(10, Math.max(5, limit - trendingTracks.length)));
+      const allTracks = [...trendingTracks, ...demoTracks];
+      
       // Shuffle the results to mix different sources
-      const shuffledTracks = trendingTracks.sort(() => Math.random() - 0.5);
+      const shuffledTracks = allTracks.sort(() => Math.random() - 0.5);
       
-      console.log(`🔥 Total trending tracks: ${shuffledTracks.length}`);
+      console.log(`🔥 Total trending tracks: ${shuffledTracks.length} (${trendingTracks.length} from APIs, ${demoTracks.length} demo)`);
       
-      // If we got results, return them
-      if (shuffledTracks.length > 0) {
-        return shuffledTracks.slice(0, limit);
-      }
-      
-      // Fallback to demo content if all APIs failed
-      console.log('⚠️ All APIs failed or returned no results, using demo content');
-      return this.getDemoTracks(limit);
+      // Return the requested number of tracks
+      return shuffledTracks.slice(0, limit);
     } catch (error) {
       console.error('Failed to get trending tracks:', error);
       console.log('⚠️ Using demo content due to error');

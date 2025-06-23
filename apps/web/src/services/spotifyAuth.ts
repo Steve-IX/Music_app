@@ -243,7 +243,7 @@ export default class SpotifyAuthService {
   }
 
   // Check if token is still valid
-  isTokenValid(): boolean {
+  public isTokenValid(): boolean {
     if (!this.tokens || !this.tokenExpiry) {
       return false;
     }
@@ -284,7 +284,7 @@ export default class SpotifyAuthService {
   }
 
   // Clear stored tokens
-  clearTokens(): void {
+  public clearTokens(): void {
     try {
       localStorage.removeItem('spotify_tokens');
       localStorage.removeItem('spotify_token_expiry');

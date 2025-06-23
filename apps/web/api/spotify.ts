@@ -3,14 +3,10 @@ import axios from 'axios';
 
 // Middleware to ensure API route
 const ensureApiRoute = (req: VercelRequest, res: VercelResponse, next: () => Promise<void>) => {
-  // Block direct browser access
-  const isApiRequest = req.headers['accept']?.includes('application/json') || 
-                      req.headers['content-type']?.includes('application/json');
+  // Set JSON headers
+  res.setHeader('Content-Type', 'application/json');
   
-  if (!isApiRequest) {
-    return res.status(400).json({ error: 'Invalid request. API endpoints require JSON.' });
-  }
-  
+  // Always proceed with API request
   return next();
 };
 
@@ -19,6 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.setHeader('Content-Type', 'application/json');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {

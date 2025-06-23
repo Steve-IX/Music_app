@@ -39,17 +39,18 @@ class SpotifyAuthService {
       clientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
       redirectUri: getRedirectUri(),
       scopes: [
-        'user-read-private',
+        'streaming',
         'user-read-email',
+        'user-read-private',
         'user-read-playback-state',
         'user-modify-playback-state',
         'user-read-currently-playing',
-        'streaming',
         'playlist-read-private',
         'playlist-read-collaborative',
         'user-library-read',
         'user-top-read',
-        'user-read-recently-played'
+        'user-read-recently-played',
+        'app-remote-control'
       ]
     };
 
@@ -172,6 +173,7 @@ class SpotifyAuthService {
   async refreshTokens(): Promise<boolean> {
     if (!this.tokens?.refresh_token) {
       console.warn('⚠️ No refresh token available');
+      this.clearTokens();
       return false;
     }
 
@@ -191,27 +193,34 @@ class SpotifyAuthService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+        const errorData = await response.json().catch(() => null);
+        console.error('❌ Token refresh failed:', errorData || response.statusText);
+        
+        // Clear tokens on 401 or invalid_grant
+        if (response.status === 401 || (errorData && errorData.error === 'invalid_grant')) {
+          console.log('🔄 Invalid refresh token, clearing stored tokens');
+          this.clearTokens();
+        }
+        
+        return false;
       }
 
-      const newTokens: SpotifyTokens = await response.json();
+      const newTokens = await response.json();
       
-      // Preserve refresh token if not provided in response
-      if (!newTokens.refresh_token && this.tokens.refresh_token) {
-        newTokens.refresh_token = this.tokens.refresh_token;
-      }
-
-      this.tokens = newTokens;
+      // Preserve the refresh token if not provided in response
+      this.tokens = {
+        ...newTokens,
+        refresh_token: newTokens.refresh_token || this.tokens.refresh_token
+      };
+      
       this.tokenExpiry = Date.now() + (newTokens.expires_in * 1000);
-      this.storeTokens(newTokens);
+      this.storeTokens(this.tokens);
 
       console.log('✅ Successfully refreshed Spotify tokens');
       return true;
 
     } catch (error) {
       console.error('❌ Error refreshing tokens:', error);
-      this.clearTokens();
       return false;
     }
   }

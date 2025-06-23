@@ -6,8 +6,8 @@
   "author": "CodeSmith-Maestro",
   "license": "MIT",
   "engines": {
-    "node": ">=22.0.0",
-    "npm": ">=10.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "scripts": {
     "dev": "cd apps/web && npm run dev",

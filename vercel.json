@@ -1,12 +1,16 @@
 {
   "version": 2,
-  "buildCommand": "cd apps/web && npm install && npm run build",
+  "buildCommand": "npm install && cd apps/web && npm install && npm run build",
   "outputDirectory": "apps/web/dist",
   "framework": "vite",
-  "installCommand": "cd apps/web && npm install",
+  "installCommand": "npm install",
   "builds": [
     {
-      "src": "apps/web/**",
+      "src": "apps/web/package.json",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "apps/web/dist/**",
       "use": "@vercel/static"
     }
   ],
@@ -17,7 +21,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/apps/web/dist/index.html"
     }
   ]
 } 

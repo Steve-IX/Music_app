@@ -78,7 +78,7 @@
     "typescript": "^5.3.2"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "18.x"
   },
   "jest": {
     "preset": "ts-jest",

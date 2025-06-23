@@ -46,6 +46,12 @@ class SpotifyPlayerService {
 
   constructor() {
     this.authService = new SpotifyAuthService();
+    
+    // Register for auth success callbacks
+    this.authService.onAuthSuccess(() => {
+      this.initializeAfterAuth();
+    });
+
     this.loadSpotifySDK();
   }
 
@@ -98,10 +104,21 @@ class SpotifyPlayerService {
         });
       }
 
+      // Check if user is authenticated before attempting to initialize
+      if (!this.authService.isAuthenticated()) {
+        console.log('🔐 User not authenticated with Spotify - skipping player initialization');
+        this.setState({ error: 'Please connect your Spotify account to use in-site playback' });
+        return;
+      }
+
       const accessToken = this.authService.getAccessToken();
       if (!accessToken) {
-        throw new Error('No access token available');
+        console.log('🔐 No access token available - user needs to authenticate');
+        this.setState({ error: 'Please connect your Spotify account to use in-site playback' });
+        return;
       }
+
+      console.log('🎵 Initializing Spotify player...');
 
       // Create player instance
       this.player = new window.Spotify.Player({
@@ -171,7 +188,8 @@ class SpotifyPlayerService {
     } catch (error: any) {
       console.error('❌ Failed to initialize Spotify player:', error);
       this.setState({ error: error.message });
-      throw error;
+      // Don't throw the error to prevent uncaught promise rejection
+      // Instead, just log it and set the error state
     }
   }
 
@@ -343,6 +361,14 @@ class SpotifyPlayerService {
   // Check if authenticated
   isAuthenticated(): boolean {
     return this.authService.isAuthenticated();
+  }
+
+  // New method to initialize player after authentication
+  async initializeAfterAuth(): Promise<void> {
+    if (this.authService.isAuthenticated() && !this.isInitialized) {
+      console.log('🔐 User authenticated - initializing Spotify player...');
+      await this.initializePlayer();
+    }
   }
 
   private setState(updates: Partial<SpotifyPlayerState>): void {

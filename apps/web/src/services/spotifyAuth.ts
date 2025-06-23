@@ -16,10 +16,13 @@ export interface SpotifyTokens {
   scope: string;
 }
 
+export type AuthCallback = () => void;
+
 class SpotifyAuthService {
   private config: SpotifyAuthConfig;
   private tokens: SpotifyTokens | null = null;
   private tokenExpiry: number = 0;
+  private authCallbacks: AuthCallback[] = [];
 
   constructor() {
     const isProd = window.location.hostname !== 'localhost';
@@ -61,6 +64,30 @@ class SpotifyAuthService {
     });
   }
 
+  // Add callback for when authentication is successful
+  onAuthSuccess(callback: AuthCallback): void {
+    this.authCallbacks.push(callback);
+  }
+
+  // Remove callback
+  removeAuthCallback(callback: AuthCallback): void {
+    const index = this.authCallbacks.indexOf(callback);
+    if (index > -1) {
+      this.authCallbacks.splice(index, 1);
+    }
+  }
+
+  // Trigger auth success callbacks
+  private triggerAuthSuccess(): void {
+    this.authCallbacks.forEach(callback => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('Error in auth success callback:', error);
+      }
+    });
+  }
+
   // Initialize authentication
   async initialize(): Promise<boolean> {
     try {
@@ -73,6 +100,7 @@ class SpotifyAuthService {
         // Check if token is still valid
         if (this.isTokenValid()) {
           console.log('✅ Using stored Spotify tokens');
+          this.triggerAuthSuccess();
           return true;
         } else {
           console.log('🔄 Spotify token expired, refreshing...');
@@ -104,6 +132,7 @@ class SpotifyAuthService {
             sessionStorage.removeItem('spotify_auth_return_url');
             window.location.href = returnUrl;
           }
+          this.triggerAuthSuccess();
         }
         return success;
       }
@@ -170,6 +199,7 @@ class SpotifyAuthService {
       this.storeTokens(tokens);
 
       console.log('✅ Successfully obtained Spotify tokens');
+      this.triggerAuthSuccess();
       return true;
 
     } catch (error) {
@@ -217,6 +247,7 @@ class SpotifyAuthService {
       this.storeTokens(newTokens);
 
       console.log('✅ Successfully refreshed Spotify tokens');
+      this.triggerAuthSuccess();
       return true;
 
     } catch (error) {

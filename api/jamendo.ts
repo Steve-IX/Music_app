@@ -22,7 +22,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const clientId = process.env.JAMENDO_CLIENT_ID || process.env.VITE_JAMENDO_CLIENT_ID;
 
     if (!clientId) {
-      return res.status(500).json({ error: 'Jamendo API key not configured' });
+      console.log('⚠️ Jamendo API key not configured, returning empty results');
+      // Return empty results instead of error when API key is missing
+      return res.status(200).json({ 
+        results: [],
+        headers: { 
+          status: 'success',
+          code: 0,
+          message: 'API key not configured - returning empty results'
+        }
+      });
     }
 
     const baseUrl = 'https://api.jamendo.com/v3.0';
@@ -30,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let params: any = {
       client_id: clientId,
       format: 'json',
-      limit: parseInt(limit as string),
+      limit: parseInt(limit as string) || 20,
     };
 
     switch (type) {
@@ -61,14 +70,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Invalid type parameter' });
     }
 
-    const response = await axios.get(`${baseUrl}${endpoint}`, { params });
+    console.log(`🎵 Jamendo API request: ${baseUrl}${endpoint} with query: ${query}`);
+    const response = await axios.get(`${baseUrl}${endpoint}`, { 
+      params,
+      timeout: 8000 // 8 second timeout
+    });
     
+    console.log(`✅ Jamendo API response: ${response.data.results?.length || 0} results`);
     res.status(200).json(response.data);
   } catch (error: any) {
     console.error('Jamendo API error:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({
-      error: 'Failed to fetch from Jamendo API',
-      details: error.response?.data || error.message
+    
+    // Return empty results instead of error for better UX
+    res.status(200).json({
+      results: [],
+      headers: {
+        status: 'error',
+        code: error.response?.status || 500,
+        message: error.response?.data?.message || error.message || 'Jamendo API unavailable'
+      }
     });
   }
 } 

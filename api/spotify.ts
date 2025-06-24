@@ -23,8 +23,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const clientSecret = process.env.SPOTIFY_CLIENT_SECRET || process.env.VITE_SPOTIFY_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      return res.status(500).json({ error: 'Spotify credentials not configured' });
+      console.log('⚠️ Spotify credentials not configured, returning empty results');
+      // Return empty results instead of error when credentials are missing
+      return res.status(200).json({ 
+        tracks: { items: [] },
+        artists: { items: [] },
+        albums: { items: [] },
+        error: {
+          status: 'credentials_missing',
+          message: 'Spotify API credentials not configured'
+        }
+      });
     }
+
+    console.log(`🎵 Spotify API request with query: ${query}`);
 
     // Get access token
     const tokenResponse = await axios.post(
@@ -35,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'Content-Type': 'application/x-www-form-urlencoded',
           Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
         },
+        timeout: 8000
       }
     );
 
@@ -46,18 +59,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       params: {
         q: query,
         type: 'track,artist,album',
-        limit: parseInt(limit as string),
+        limit: parseInt(limit as string) || 20,
         market: 'US',
         include_external: 'audio',
       },
+      timeout: 8000
     });
 
+    console.log(`✅ Spotify API response: ${searchResponse.data.tracks?.items?.length || 0} tracks, ${searchResponse.data.artists?.items?.length || 0} artists, ${searchResponse.data.albums?.items?.length || 0} albums`);
     res.status(200).json(searchResponse.data);
   } catch (error: any) {
     console.error('Spotify API error:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({
-      error: 'Failed to fetch from Spotify API',
-      details: error.response?.data || error.message
+    
+    // Return empty results instead of error for better UX
+    res.status(200).json({
+      tracks: { items: [] },
+      artists: { items: [] },
+      albums: { items: [] },
+      error: {
+        status: error.response?.status || 500,
+        message: error.response?.data?.error?.message || error.message || 'Spotify API unavailable'
+      }
     });
   }
 } 

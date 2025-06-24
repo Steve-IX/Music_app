@@ -135,228 +135,202 @@ class AudioPlayerService {
   // Load and play a track
   async loadTrack(url: string, trackId?: string, duration?: number): Promise<void> {
     return new Promise(async (resolve) => {
-      // Stop current track if playing
-      this.stop();
-
-      this.setState({ loading: true, error: null });
-
-      // Enhanced audio source detection
-      const hasRealAudio = url && url !== '' && url !== 'demo-audio' && !url.includes('demo') && (url.startsWith('http') || url.startsWith('blob:'));
-      
-      // Special handling for different audio sources
-      const isSpotifyPreview = url.includes('scdn.co') || (url.includes('spotify.com') && !url.includes('open.spotify.com'));
-      const isSpotifyWebUrl = url.includes('open.spotify.com');
-      const isJamendoStream = url.includes('jamendo.com') || url.includes('jamendo');
-      const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
-      const isYouTubeVideoId = /^[a-zA-Z0-9_-]{11}$/.test(url); // YouTube video ID pattern
-      const isPreviewUrl = isSpotifyPreview || url.includes('preview') || url.includes('sample');
-      const isAudioFile = url.match(/\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i);
-      const isStreamUrl = url.includes('stream') || url.includes('audio') || url.includes('media');
-
-      console.log('🎵 Loading track:', {
-        url,
-        trackId,
-        duration,
-        hasRealAudio,
-        isSpotifyPreview,
-        isSpotifyWebUrl,
-        isJamendoStream,
-        isYouTubeUrl,
-        isPreviewUrl,
-        isAudioFile,
-        isStreamUrl
-      });
-
-      // Handle empty or invalid URLs - fallback to simulation
-      if (!url || url === '' || url === 'demo-audio') {
-        console.log('🎵 No audio URL provided - using simulation mode');
-        this.currentSource = 'simulation';
-        this.isSimulationMode = true;
-        this.currentTrackId = trackId || 'demo-track';
-        this.loadSimulationMode(this.currentTrackId, duration || 180);
-        this.setState({ loading: false });
-        resolve();
-        return;
-      }
-
-      // Handle YouTube URLs - open in external player (no embedding allowed)
-      if (isYouTubeUrl || isYouTubeVideoId) {
-        console.log('🎵 YouTube URL detected - opening in external player');
-        this.currentSource = 'youtube';
-        this.currentTrackId = trackId || 'youtube-external';
+      try {
+        this.setState({ loading: true, error: null });
         
-        try {
-          // Extract video ID if needed
-          let videoUrl = url;
-          if (isYouTubeVideoId) {
-            videoUrl = `https://www.youtube.com/watch?v=${url}`;
+        // Clear any existing audio
+        this.stop();
+        
+        const isSpotifyWebUrl = url.includes('open.spotify.com');
+        const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
+        const isPreviewUrl = url.endsWith('.mp3') || url.endsWith('.wav');
+        
+        // Handle Spotify Web URLs - try to play within site first
+        if (isSpotifyWebUrl) {
+          console.log('🎵 Spotify Web URL detected - attempting in-site playback');
+          this.currentSource = 'spotify';
+          this.currentTrackId = trackId || 'spotify-external';
+          
+          if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated()) {
+            try {
+              console.log('🎵 Attempting Spotify Web Playback SDK...');
+              await this.spotifyPlayer.loadTrackFromUrl(url);
+              console.log('✅ Spotify track loaded in-site via Web Playback SDK');
+              this.isSimulationMode = false;
+              this.setState({ loading: false });
+              resolve();
+              return;
+            } catch (error: any) {
+              // If Web Playback fails (e.g. non-Premium user), fall back to external player
+              console.warn('⚠️ Web Playback SDK failed:', error.message);
+              if (error.message?.includes('Premium required')) {
+                console.log('ℹ️ Premium account required for in-site playback');
+              }
+            }
           }
           
-          // Open in new tab/window
-          window.open(videoUrl, '_blank');
-          console.log('✅ Opened YouTube video in external player');
-          
-          // Use simulation mode for UI feedback
+          // Fallback to external player
+          console.log('🎵 Opening Spotify track in external player');
+          window.open(url, '_blank');
+          this.fallbackToSimulation(resolve);
+          return;
+        }
+        
+        // Enhanced audio source detection
+        const hasRealAudio = url && url !== '' && url !== 'demo-audio' && !url.includes('demo') && (url.startsWith('http') || url.startsWith('blob:'));
+        
+        // Special handling for different audio sources
+        const isSpotifyPreview = url.includes('scdn.co') || (url.includes('spotify.com') && !url.includes('open.spotify.com'));
+        const isJamendoStream = url.includes('jamendo.com') || url.includes('jamendo');
+        const isYouTubeVideoId = /^[a-zA-Z0-9_-]{11}$/.test(url); // YouTube video ID pattern
+        const isAudioFile = url.match(/\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i);
+        const isStreamUrl = url.includes('stream') || url.includes('audio') || url.includes('media');
+
+        console.log('🎵 Loading track:', {
+          url,
+          trackId,
+          duration,
+          hasRealAudio,
+          isSpotifyPreview,
+          isSpotifyWebUrl,
+          isJamendoStream,
+          isYouTubeUrl,
+          isPreviewUrl,
+          isAudioFile,
+          isStreamUrl
+        });
+
+        // Handle empty or invalid URLs - fallback to simulation
+        if (!url || url === '' || url === 'demo-audio') {
+          console.log('🎵 No audio URL provided - using simulation mode');
+          this.currentSource = 'simulation';
           this.isSimulationMode = true;
+          this.currentTrackId = trackId || 'demo-track';
           this.loadSimulationMode(this.currentTrackId, duration || 180);
           this.setState({ loading: false });
           resolve();
-        } catch (error) {
-          console.error('❌ Failed to open YouTube URL:', error);
-          this.setState({ 
-            loading: false, 
-            error: 'Failed to open YouTube video' 
-          });
-          resolve();
+          return;
         }
-        return;
-      }
 
-      // Handle Spotify Web URLs - try to play within site first
-      if (isSpotifyWebUrl) {
-        console.log('🎵 Spotify Web URL detected - attempting in-site playback');
-        this.currentSource = 'spotify';
-        this.currentTrackId = trackId || 'spotify-external';
-        
-        if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated()) {
+        // Handle YouTube URLs - open in external player (no embedding allowed)
+        if (isYouTubeUrl || isYouTubeVideoId) {
+          console.log('🎵 YouTube URL detected - opening in external player');
+          this.currentSource = 'youtube';
+          this.currentTrackId = trackId || 'youtube-external';
+          
           try {
-            console.log('🎵 Attempting Spotify Web Playback SDK...');
-            await this.spotifyPlayer.loadTrackFromUrl(url);
-            console.log('✅ Spotify track loaded in-site via Web Playback SDK');
-            this.isSimulationMode = false;
+            // Extract video ID if needed
+            let videoUrl = url;
+            if (isYouTubeVideoId) {
+              videoUrl = `https://www.youtube.com/watch?v=${url}`;
+            }
+            
+            // Open in new tab/window
+            window.open(videoUrl, '_blank');
+            console.log('✅ Opened YouTube video in external player');
+            
+            // Use simulation mode for UI feedback
+            this.isSimulationMode = true;
+            this.loadSimulationMode(this.currentTrackId, duration || 180);
             this.setState({ loading: false });
             resolve();
-            return;
-          } catch (error: any) {
-            console.warn('⚠️ Spotify Web Playback SDK failed:', error.message);
-            
-            // If it's a premium account error, fall back to external player
-            if (error.message.includes('Premium')) {
-              console.log('⚠️ Premium account required - falling back to external player');
-              window.open(url, '_blank');
-              this.isSimulationMode = true;
-              this.loadSimulationMode(this.currentTrackId, duration || 180);
-              this.setState({ loading: false });
-              resolve();
-              return;
-            }
-            
-            // If it's an authentication error, try to re-authenticate
-            if (error.message.includes('Authentication') || error.message.includes('401')) {
-              console.log('🔐 Attempting to re-authenticate with Spotify...');
-              this.spotifyPlayer.startAuth();
-              // Use simulation mode while re-authenticating
-              this.isSimulationMode = true;
-              this.loadSimulationMode(this.currentTrackId, duration || 180);
-              this.setState({ loading: false });
-              resolve();
-              return;
-            }
+          } catch (error) {
+            console.error('❌ Failed to open YouTube URL:', error);
+            this.setState({ 
+              loading: false, 
+              error: 'Failed to open YouTube video' 
+            });
+            resolve();
           }
-        } else {
-          console.log('🔐 Spotify player not ready - authentication required');
-          if (this.spotifyPlayer && !this.spotifyPlayer.isAuthenticated()) {
-            console.log('🔐 Starting Spotify authentication...');
-            this.spotifyPlayer.startAuth();
-          }
+          return;
         }
-        
-        // Final fallback: use simulation mode with external link option
-        console.log('🎵 Using simulation mode with external Spotify option');
+
+        // Handle Spotify Preview URLs or Jamendo streams - use Howler.js
+        if (isSpotifyPreview || isJamendoStream || isAudioFile || isStreamUrl) {
+          console.log('🎵 Loading real audio track (preview/stream)');
+          this.currentSource = 'howler';
+          this.isSimulationMode = false;
+          this.currentTrackId = trackId || 'audio-stream';
+          
+          try {
+            this.currentHowl = new Howl({
+              src: [url],
+              html5: true,
+              preload: true,
+              volume: this.state.volume / 100,
+              onload: () => {
+                console.log('✅ Audio loaded successfully');
+                this.setState({ 
+                  loading: false, 
+                  duration: this.currentHowl?.duration() || duration || 0,
+                  error: null 
+                });
+                this.callbacks.onLoad?.();
+                resolve();
+              },
+              onloaderror: (id, error) => {
+                console.error('❌ Failed to load audio track:', error);
+                // Fallback to simulation mode
+                console.log('🎵 Falling back to simulation mode');
+                this.isSimulationMode = true;
+                this.loadSimulationMode(this.currentTrackId || 'fallback-track', duration || 180);
+                this.setState({ 
+                  loading: false, 
+                  error: null // Don't show error, just use simulation
+                });
+                resolve();
+              },
+              onplay: () => {
+                this.setState({ isPlaying: true });
+                this.startTimeUpdate();
+                this.callbacks.onPlay?.();
+              },
+              onpause: () => {
+                this.setState({ isPlaying: false });
+                this.stopTimeUpdate();
+                this.callbacks.onPause?.();
+              },
+              onend: () => {
+                this.setState({ isPlaying: false, currentTime: 0 });
+                this.stopTimeUpdate();
+                this.callbacks.onEnd?.();
+              },
+              onstop: () => {
+                this.setState({ isPlaying: false, currentTime: 0 });
+                this.stopTimeUpdate();
+              },
+              onseek: () => {
+                this.callbacks.onSeek?.(this.currentHowl?.seek() || 0);
+              }
+            });
+          } catch (error) {
+            console.error('❌ Error creating Howl instance:', error);
+            // Fallback to simulation mode
+            console.log('🎵 Falling back to simulation mode');
+            this.isSimulationMode = true;
+            this.loadSimulationMode(this.currentTrackId || 'fallback-track', duration || 180);
+            this.setState({ 
+              loading: false, 
+              error: null // Don't show error, just use simulation
+            });
+            resolve();
+          }
+          return;
+        }
+
+        // Default fallback to simulation mode
+        console.log('🎵 Unknown audio format - using simulation mode');
+        this.currentSource = 'simulation';
         this.isSimulationMode = true;
+        this.currentTrackId = trackId || 'unknown-track';
         this.loadSimulationMode(this.currentTrackId, duration || 180);
         this.setState({ loading: false });
-        
-        // Show user they can click to open in Spotify
-        setTimeout(() => {
-          console.log('💡 User can click track to open in Spotify app');
-        }, 1000);
-        
         resolve();
-        return;
+      } catch (error) {
+        console.error('❌ Error loading track:', error);
+        this.setState({ loading: false, error: 'Failed to load track' });
+        resolve();
       }
-
-      // Handle Spotify Preview URLs or Jamendo streams - use Howler.js
-      if (isSpotifyPreview || isJamendoStream || isAudioFile || isStreamUrl) {
-        console.log('🎵 Loading real audio track (preview/stream)');
-        this.currentSource = 'howler';
-        this.isSimulationMode = false;
-        this.currentTrackId = trackId || 'audio-stream';
-        
-        try {
-          this.currentHowl = new Howl({
-            src: [url],
-            html5: true,
-            preload: true,
-            volume: this.state.volume / 100,
-            onload: () => {
-              console.log('✅ Audio loaded successfully');
-              this.setState({ 
-                loading: false, 
-                duration: this.currentHowl?.duration() || duration || 0,
-                error: null 
-              });
-              this.callbacks.onLoad?.();
-              resolve();
-            },
-            onloaderror: (id, error) => {
-              console.error('❌ Failed to load audio track:', error);
-              // Fallback to simulation mode
-              console.log('🎵 Falling back to simulation mode');
-              this.isSimulationMode = true;
-              this.loadSimulationMode(this.currentTrackId || 'fallback-track', duration || 180);
-              this.setState({ 
-                loading: false, 
-                error: null // Don't show error, just use simulation
-              });
-              resolve();
-            },
-            onplay: () => {
-              this.setState({ isPlaying: true });
-              this.startTimeUpdate();
-              this.callbacks.onPlay?.();
-            },
-            onpause: () => {
-              this.setState({ isPlaying: false });
-              this.stopTimeUpdate();
-              this.callbacks.onPause?.();
-            },
-            onend: () => {
-              this.setState({ isPlaying: false, currentTime: 0 });
-              this.stopTimeUpdate();
-              this.callbacks.onEnd?.();
-            },
-            onstop: () => {
-              this.setState({ isPlaying: false, currentTime: 0 });
-              this.stopTimeUpdate();
-            },
-            onseek: () => {
-              this.callbacks.onSeek?.(this.currentHowl?.seek() || 0);
-            }
-          });
-        } catch (error) {
-          console.error('❌ Error creating Howl instance:', error);
-          // Fallback to simulation mode
-          console.log('🎵 Falling back to simulation mode');
-          this.isSimulationMode = true;
-          this.loadSimulationMode(this.currentTrackId || 'fallback-track', duration || 180);
-          this.setState({ 
-            loading: false, 
-            error: null // Don't show error, just use simulation
-          });
-          resolve();
-        }
-        return;
-      }
-
-      // Default fallback to simulation mode
-      console.log('🎵 Unknown audio format - using simulation mode');
-      this.currentSource = 'simulation';
-      this.isSimulationMode = true;
-      this.currentTrackId = trackId || 'unknown-track';
-      this.loadSimulationMode(this.currentTrackId, duration || 180);
-      this.setState({ loading: false });
-      resolve();
     });
   }
 

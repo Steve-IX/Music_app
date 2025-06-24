@@ -284,12 +284,67 @@ class SpotifyPlayerService {
   }
 
   async loadTrackFromUrl(url: string): Promise<void> {
-    // Extract track ID from Spotify URL
-    const trackId = this.extractTrackId(url);
-    if (trackId) {
-      await this.loadTrack(trackId);
-    } else {
-      throw new Error('Invalid Spotify URL');
+    try {
+      const trackId = this.extractTrackId(url);
+      if (!trackId) {
+        throw new Error('Invalid Spotify URL');
+      }
+
+      if (!this.isInitialized || !this.state.deviceId) {
+        console.warn('⚠️ Spotify player not ready, attempting initialization');
+        await this.initializePlayer();
+        
+        // Check again after initialization attempt
+        if (!this.isInitialized || !this.state.deviceId) {
+          throw new Error('Failed to initialize Spotify player');
+        }
+      }
+
+      if (!this.authService.isAuthenticated()) {
+        throw new Error('Authentication required');
+      }
+
+      const token = this.authService.getAccessToken();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      // Try to play the track
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.state.deviceId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uris: [`spotify:track:${trackId}`]
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        if (response.status === 403 && error.error.reason === 'PREMIUM_REQUIRED') {
+          throw new Error('Premium required');
+        } else if (response.status === 401) {
+          throw new Error('Authentication expired');
+        } else {
+          throw new Error(error.error.message || 'Failed to play track');
+        }
+      }
+
+      this.setState({ 
+        trackId,
+        loading: false,
+        error: null
+      });
+
+    } catch (error: any) {
+      console.error('❌ Spotify playback error:', error);
+      this.setState({ 
+        error: error.message || 'Failed to play track',
+        loading: false 
+      });
+      throw error;
     }
   }
 

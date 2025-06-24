@@ -36,6 +36,19 @@ VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
 VITE_JAMENDO_CLIENT_ID=your_jamendo_client_id_here
 ```
 
+**⚠️ IMPORTANT for Production/Vercel:**
+1. **Add your production domain** to Spotify App settings:
+   - Go to your Spotify app in the dashboard
+   - Click "Edit Settings"
+   - Add redirect URI: `https://your-app-domain.vercel.app/spotify-callback`
+   - Save changes
+
+2. **Set environment variables in Vercel:**
+   - Go to your Vercel project dashboard
+   - Navigate to Settings → Environment Variables
+   - Add the same variables as above
+   - Redeploy your app
+
 ### 4. Restart Your App
 
 ```bash

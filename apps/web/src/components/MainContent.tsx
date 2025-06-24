@@ -241,10 +241,17 @@ const MainContent: React.FC<MainContentProps> = ({ searchQuery = '' }) => {
       if (item.apiTrack.source === 'youtube') {
         showToast(`🎵 YouTube: "${item.title}" by ${item.artist} - Playing directly in site`, 'info');
       } else if (item.apiTrack.source === 'spotify') {
+        // Enhanced Spotify handling with better user feedback
         if (item.apiTrack.previewUrl) {
           showToast(`🎵 Spotify: "${item.title}" by ${item.artist} - Playing 30s preview`, 'info');
         } else if (item.apiTrack.url && item.apiTrack.url.includes('open.spotify.com')) {
-          showToast(`🎵 Spotify: "${item.title}" by ${item.artist} - Opening in Spotify app`, 'info');
+          // Check if user has Spotify connected for in-site playback
+          const spotifyConnected = localStorage.getItem('spotify_access_token');
+          if (spotifyConnected) {
+            showToast(`🎵 Spotify: "${item.title}" by ${item.artist} - Attempting in-site playback (Premium required)`, 'info');
+          } else {
+            showToast(`🎵 Spotify: "${item.title}" by ${item.artist} - Connect Spotify for in-site playback`, 'info');
+          }
         } else {
           showToast(`🎵 Spotify: "${item.title}" by ${item.artist} - No audio available`, 'error');
         }
@@ -255,17 +262,17 @@ const MainContent: React.FC<MainContentProps> = ({ searchQuery = '' }) => {
       }
     } else {
       // This is a demo track
-    const track = {
-      id: item.id,
-      title: item.title,
-      artist: item.artist,
+      const track = {
+        id: item.id,
+        title: item.title,
+        artist: item.artist,
         album: item.type === 'Album' ? item.title : item.album || 'Single',
         duration: item.type === 'Track' ? item.duration : 240,
-      url: '',
+        url: '',
         coverUrl: `https://picsum.photos/400/400?random=${item.id}`,
         source: 'demo' as const,
-    };
-    dispatch({ type: 'PLAY_TRACK', payload: track });
+      };
+      dispatch({ type: 'PLAY_TRACK', payload: track });
       showToast(`🎵 Demo: "${item.title}" by ${item.artist} - Simulation mode`, 'info');
     }
   };

@@ -325,7 +325,8 @@ class SpotifyPlayerService {
     }
   }
 
-  private extractTrackId(url: string): string | null {
+  // Extract track ID from Spotify URL (public method)
+  extractTrackId(url: string): string | null {
     const match = url.match(/spotify\.com\/track\/([a-zA-Z0-9]+)/);
     return match ? match[1] : null;
   }
@@ -384,6 +385,11 @@ class SpotifyPlayerService {
 
   getTrackId(): string | null {
     return this.state.trackId;
+  }
+
+  // Get access token for API calls
+  getAccessToken(): string | null {
+    return this.authService.getAccessToken();
   }
 
   // Start authentication flow

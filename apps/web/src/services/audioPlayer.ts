@@ -218,37 +218,98 @@ class AudioPlayerService {
         this.currentSource = 'spotify';
         this.currentTrackId = trackId || 'spotify-external';
         
-        if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated()) {
+        if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated() && this.spotifyPlayer.isLoaded()) {
           try {
+            console.log('🎵 Attempting Spotify Web Playback SDK...');
             await this.spotifyPlayer.loadTrackFromUrl(url);
-            console.log('✅ Spotify track loaded in-site');
+            console.log('✅ Spotify track loaded in-site via Web Playback SDK');
+            this.isSimulationMode = false;
             this.setState({ loading: false });
             resolve();
             return;
-          } catch (error) {
-            console.warn('⚠️ Spotify in-site playback failed, falling back to external:', error);
+          } catch (error: any) {
+            console.warn('⚠️ Spotify Web Playback SDK failed:', error.message);
+            
+            // If it's an authentication error, try to re-authenticate
+            if (error.message.includes('Authentication') || error.message.includes('401')) {
+              console.log('🔐 Attempting to re-authenticate with Spotify...');
+              this.spotifyPlayer.startAuth();
+            }
+            
+            // Don't immediately fall back to external - try preview URL first if available
+            console.log('🎵 Checking for Spotify preview URL...');
+            // Extract track ID and try to get preview URL
+            const trackId = this.spotifyPlayer.extractTrackId ? this.spotifyPlayer.extractTrackId(url) : null;
+            if (trackId) {
+              try {
+                // Try to get track info including preview URL
+                const trackInfo = await this.getSpotifyTrackInfo(trackId);
+                if (trackInfo && trackInfo.preview_url) {
+                  console.log('🎵 Found Spotify preview URL, using Howler.js');
+                  this.currentSource = 'howler';
+                  this.isSimulationMode = false;
+                  
+                  this.currentHowl = new Howl({
+                    src: [trackInfo.preview_url],
+                    html5: true,
+                    preload: true,
+                    volume: this.state.volume / 100,
+                    onload: () => {
+                      console.log('✅ Spotify preview loaded successfully');
+                      this.setState({ 
+                        loading: false, 
+                        duration: 30, // Previews are 30 seconds
+                        error: null 
+                      });
+                      this.callbacks.onLoad?.();
+                      resolve();
+                    },
+                    onloaderror: (id, error) => {
+                      console.warn('⚠️ Spotify preview failed to load, using simulation');
+                      this.fallbackToSimulation(resolve);
+                    },
+                    onplay: () => {
+                      this.setState({ isPlaying: true });
+                      this.startTimeUpdate();
+                      this.callbacks.onPlay?.();
+                    },
+                    onpause: () => {
+                      this.setState({ isPlaying: false });
+                      this.stopTimeUpdate();
+                      this.callbacks.onPause?.();
+                    },
+                    onend: () => {
+                      this.setState({ isPlaying: false, currentTime: 0 });
+                      this.stopTimeUpdate();
+                      this.callbacks.onEnd?.();
+                    }
+                  });
+                  return;
+                }
+              } catch (previewError) {
+                console.warn('⚠️ Failed to get Spotify track info:', previewError);
+              }
+            }
           }
         } else {
-          console.log('🔐 Spotify player not authenticated - user needs to connect Spotify');
-        }
-        
-        // Fallback to external player
-        console.log('🎵 Spotify web URL detected - opening in external player');
-        try {
-          const newWindow = window.open(url, '_blank');
-          if (!newWindow) {
-            // Popup blocked, try current tab
-            window.location.href = url;
+          console.log('🔐 Spotify player not ready - authentication required');
+          if (this.spotifyPlayer && !this.spotifyPlayer.isAuthenticated()) {
+            console.log('🔐 Starting Spotify authentication...');
+            this.spotifyPlayer.startAuth();
           }
-          console.log('✅ Opened Spotify track in external player');
-        } catch (error) {
-          console.error('❌ Failed to open Spotify URL:', error);
         }
         
-        // Use simulation mode for UI feedback
+        // Final fallback: use simulation mode with external link option
+        console.log('🎵 Using simulation mode with external Spotify option');
         this.isSimulationMode = true;
         this.loadSimulationMode(this.currentTrackId, duration || 180);
         this.setState({ loading: false });
+        
+        // Show user they can click to open in Spotify
+        setTimeout(() => {
+          console.log('💡 User can click track to open in Spotify app');
+        }, 1000);
+        
         resolve();
         return;
       }
@@ -338,16 +399,15 @@ class AudioPlayerService {
   }
 
   private extractVideoId(url: string): string | null {
-    // Handle various YouTube URL formats
+    // Extract YouTube video ID from various URL formats
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /youtube\.com\/v\/([^&\n?#]+)/,
-      /youtube\.com\/watch\?.*v=([^&\n?#]+)/
+      /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
     ];
     
     for (const pattern of patterns) {
       const match = url.match(pattern);
-      if (match && match[1]) {
+      if (match) {
         return match[1];
       }
     }
@@ -574,6 +634,48 @@ class AudioPlayerService {
       this.spotifyPlayer.destroy();
       this.spotifyPlayer = null;
     }
+  }
+
+  // Helper method to get Spotify track info including preview URL
+  private async getSpotifyTrackInfo(trackId: string): Promise<any> {
+    try {
+      if (!this.spotifyPlayer || !this.spotifyPlayer.isAuthenticated()) {
+        throw new Error('Spotify not authenticated');
+      }
+      
+      const accessToken = this.spotifyPlayer.getAccessToken?.();
+      if (!accessToken) {
+        throw new Error('No Spotify access token');
+      }
+      
+      const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Spotify API error: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get Spotify track info:', error);
+      return null;
+    }
+  }
+
+  // Helper method to fallback to simulation mode
+  private fallbackToSimulation(resolve: () => void): void {
+    console.log('🎵 Falling back to simulation mode');
+    this.isSimulationMode = true;
+    this.currentSource = 'simulation';
+    this.loadSimulationMode(this.currentTrackId || 'fallback-track', 180);
+    this.setState({ 
+      loading: false, 
+      error: null 
+    });
+    resolve();
   }
 }
 

@@ -340,7 +340,7 @@ class YouTubeService {
   }
 }
 
-// Demo Spotify tracks for development/fallback
+// Demo Spotify tracks for development/fallback (with real working URLs)
 const DEMO_SPOTIFY_TRACKS: Track[] = [
   {
     id: 'spotify:demo:1',
@@ -349,16 +349,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'After Hours',
     duration: 200,
     url: 'https://open.spotify.com/track/0VjIjW4GlULA1w8PDhEZaP',
-    previewUrl: 'https://p.scdn.co/mp3-preview/6b2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273ef2c2b0e4c5b4a5c5b4a5c5b',
+    previewUrl: undefined, // No fake preview URLs
+    coverUrl: 'https://picsum.photos/400/400?random=1&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.95,
     genres: ['pop', 'synthwave'],
     releaseDate: '2020-03-20',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false // Demo tracks don't have real audio
   },
   {
     id: 'spotify:demo:2',
@@ -367,16 +367,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: '÷ (Divide)',
     duration: 233,
     url: 'https://open.spotify.com/track/7qiZfU4dY1lWllzX7mPBI3',
-    previewUrl: 'https://p.scdn.co/mp3-preview/7b2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=2&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.92,
     genres: ['pop', 'acoustic'],
     releaseDate: '2017-01-06',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:3',
@@ -385,16 +385,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'Future Nostalgia',
     duration: 203,
     url: 'https://open.spotify.com/track/463CkQjx2Zk1yXoBuierM9',
-    previewUrl: 'https://p.scdn.co/mp3-preview/8b2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273ef2c2b0e4c5b4a5c5b4a5c5b',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=3&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.89,
     genres: ['pop', 'disco'],
     releaseDate: '2020-03-27',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:4',
@@ -403,16 +403,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'Fine Line',
     duration: 174,
     url: 'https://open.spotify.com/track/6UelLqGlWMcVH1E5c4H7lY',
-    previewUrl: 'https://p.scdn.co/mp3-preview/9b2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273adac1b00b9c4b6b4b4b4b4b4',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=4&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.87,
     genres: ['pop', 'rock'],
     releaseDate: '2019-12-13',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:5',
@@ -421,16 +421,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'SOUR',
     duration: 178,
     url: 'https://open.spotify.com/track/4ZtFanR9U6ndgddUvNcjcG',
-    previewUrl: 'https://p.scdn.co/mp3-preview/ab2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273a91c10fe9472d9bd89802e5a',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=5&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.91,
     genres: ['pop', 'alternative'],
     releaseDate: '2021-05-21',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:6',
@@ -439,16 +439,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'Stay',
     duration: 141,
     url: 'https://open.spotify.com/track/5HCyWlXZPP0y6Gqq8TgA20',
-    previewUrl: 'https://p.scdn.co/mp3-preview/bb2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273938b2e5e8e5e8e5e8e5e8e5e',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=6&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.88,
     genres: ['pop', 'hip-hop'],
     releaseDate: '2021-07-09',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:7',
@@ -457,16 +457,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'Midnights',
     duration: 200,
     url: 'https://open.spotify.com/track/0V3wPSX9ygBnCm8psDIegu',
-    previewUrl: 'https://p.scdn.co/mp3-preview/cb2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=7&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.94,
     genres: ['pop', 'alternative'],
     releaseDate: '2022-10-21',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:8',
@@ -475,16 +475,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: "Harry's House",
     duration: 167,
     url: 'https://open.spotify.com/track/4Dvkj6JhhA12EX05fT7y2e',
-    previewUrl: 'https://p.scdn.co/mp3-preview/db2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b2732e8ed79e177ff6011076f5f0',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=8&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.93,
     genres: ['pop', 'indie'],
     releaseDate: '2022-05-20',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:9',
@@ -493,16 +493,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'Endless Summer Vacation',
     duration: 200,
     url: 'https://open.spotify.com/track/0yLdNVWF3Srea0uzk55zFn',
-    previewUrl: 'https://p.scdn.co/mp3-preview/eb2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273f4c5b4a5c5b4a5c5b4a5c5b4',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=9&blur=1',
     source: 'spotify',
     explicit: false,
     popularity: 0.90,
     genres: ['pop', 'country'],
     releaseDate: '2023-01-13',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   },
   {
     id: 'spotify:demo:10',
@@ -511,16 +511,16 @@ const DEMO_SPOTIFY_TRACKS: Track[] = [
     album: 'Unholy',
     duration: 156,
     url: 'https://open.spotify.com/track/3nqQXoyQOWXiESFLlDF1hG',
-    previewUrl: 'https://p.scdn.co/mp3-preview/fb2f5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c5b4a5c',
-    coverUrl: 'https://i.scdn.co/image/ab67616d0000b273c5b4a5c5b4a5c5b4a5c5b4a5',
+    previewUrl: undefined,
+    coverUrl: 'https://picsum.photos/400/400?random=10&blur=1',
     source: 'spotify',
     explicit: true,
     popularity: 0.86,
     genres: ['pop', 'electronic'],
     releaseDate: '2022-09-22',
     license: 'Spotify',
-    audioType: 'preview',
-    hasAudio: true
+    audioType: 'web',
+    hasAudio: false
   }
 ];
 

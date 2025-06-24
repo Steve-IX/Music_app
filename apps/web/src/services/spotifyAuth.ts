@@ -1,6 +1,8 @@
 // Spotify Authentication Service
 // Handles OAuth flow to get access tokens for Web Playback SDK
 
+import axios from 'axios';
+
 export interface SpotifyAuthConfig {
   clientId: string;
   clientSecret: string;
@@ -22,15 +24,10 @@ class SpotifyAuthService {
   private tokenExpiry: number = 0;
 
   constructor() {
-    const isProd = window.location.hostname !== 'localhost';
-    const redirectUri = isProd 
-      ? 'https://music-app-eta-vert.vercel.app/spotify-callback'
-      : `${window.location.origin}/spotify-callback`;
-
     this.config = {
       clientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
       clientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
-      redirectUri,
+      redirectUri: `${window.location.origin}/spotify-callback`,
       scopes: [
         'streaming',
         'user-read-email',
@@ -38,20 +35,19 @@ class SpotifyAuthService {
         'user-read-playback-state',
         'user-modify-playback-state',
         'user-read-currently-playing',
-        'app-remote-control',
         'playlist-read-private',
         'playlist-read-collaborative',
         'user-library-read',
         'user-top-read',
-        'user-read-recently-played',
-        'playlist-modify-public',
-        'playlist-modify-private',
-        'user-follow-read',
-        'user-follow-modify',
-        'user-library-modify',
-        'streaming'
+        'user-read-recently-played'
       ]
     };
+
+    // Initialize from stored tokens
+    this.tokens = this.getStoredTokens();
+    if (this.tokens) {
+      this.tokenExpiry = Date.now() + (this.tokens.expires_in * 1000);
+    }
 
     console.log('🔐 Spotify Auth Config:', {
       clientId: this.config.clientId ? '✅ Set' : '❌ Missing',

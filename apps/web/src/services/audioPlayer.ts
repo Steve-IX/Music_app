@@ -87,36 +87,48 @@ class AudioPlayerService {
   }
 
   private initializeSpotifyPlayer(): void {
-    try {
-      this.spotifyPlayer = new SpotifyPlayerService();
-      this.spotifyPlayer.setCallbacks({
-        onPlay: () => {
-          this.setState({ isPlaying: true });
-          this.callbacks.onPlay?.();
-        },
-        onPause: () => {
-          this.setState({ isPlaying: false });
-          this.callbacks.onPause?.();
-        },
-        onLoad: () => {
-          this.setState({ loading: false });
-          this.callbacks.onLoad?.();
-        },
-        onLoadError: (error) => {
-          this.setState({ error: `Spotify error: ${error}`, loading: false });
-          this.callbacks.onLoadError?.(error);
-        },
-        onTimeUpdate: (time) => {
-          this.setState({ currentTime: time });
-          this.callbacks.onTimeUpdate?.(time);
-        },
-        onVolumeChange: (volume) => {
-          this.setState({ volume });
-          this.callbacks.onVolumeChange?.(volume);
-        },
-      });
-    } catch (error) {
-      console.warn('⚠️ Failed to initialize Spotify player:', error);
+    if (typeof window !== 'undefined' && !this.spotifyPlayer) {
+      try {
+        this.spotifyPlayer = new SpotifyPlayerService();
+        
+        // Only initialize if we have proper authentication
+        this.spotifyPlayer.setCallbacks({
+          onPlay: () => {
+            console.log('▶️ Spotify player onPlay callback triggered');
+            this.setState({ isPlaying: true });
+            this.callbacks.onPlay?.();
+          },
+          onPause: () => {
+            console.log('⏸️ Spotify player onPause callback triggered');
+            this.setState({ isPlaying: false });
+            this.callbacks.onPause?.();
+          },
+          onEnd: () => {
+            console.log('⏹️ Spotify player onEnd callback triggered');
+            this.setState({ isPlaying: false });
+            this.callbacks.onEnd?.();
+          },
+          onLoadError: (error) => {
+            console.error('❌ Spotify player load error:', error);
+            this.setState({ 
+              error: 'Spotify playback failed',
+              loading: false,
+              isPlaying: false 
+            });
+            this.callbacks.onLoadError?.(error);
+          },
+        });
+
+        // Check if user is authenticated before initializing
+        if (this.spotifyPlayer.isAuthenticated()) {
+          console.log('🎵 Spotify player authenticated, initializing...');
+        } else {
+          console.log('⚠️ Spotify player not authenticated, skipping initialization');
+        }
+      } catch (error) {
+        console.error('❌ Failed to initialize Spotify player service:', error);
+        this.spotifyPlayer = null;
+      }
     }
   }
 

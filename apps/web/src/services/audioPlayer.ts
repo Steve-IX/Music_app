@@ -89,6 +89,12 @@ class AudioPlayerService {
   private initializeSpotifyPlayer(): void {
     if (typeof window !== 'undefined' && !this.spotifyPlayer) {
       try {
+        // Disable Spotify player to prevent authentication errors
+        console.log('🎵 Spotify player disabled - requires Premium account and proper OAuth');
+        return;
+
+        // Original Spotify player initialization commented out
+        /*
         this.spotifyPlayer = new SpotifyPlayerService();
         
         // Only initialize if we have proper authentication
@@ -108,26 +114,23 @@ class AudioPlayerService {
             this.setState({ isPlaying: false });
             this.callbacks.onEnd?.();
           },
-          onLoadError: (error) => {
+          onLoadError: (error: any) => {
             console.error('❌ Spotify player load error:', error);
-            this.setState({ 
-              error: 'Spotify playback failed',
-              loading: false,
-              isPlaying: false 
-            });
+            this.setState({ error: 'Failed to load Spotify track' });
             this.callbacks.onLoadError?.(error);
           },
+          onTimeUpdate: (time: number) => {
+            this.setState({ currentTime: time });
+            this.callbacks.onTimeUpdate?.(time);
+          },
+          onVolumeChange: (volume: number) => {
+            this.setState({ volume: volume });
+            this.callbacks.onVolumeChange?.(volume);
+          }
         });
-
-        // Check if user is authenticated before initializing
-        if (this.spotifyPlayer.isAuthenticated()) {
-          console.log('🎵 Spotify player authenticated, initializing...');
-        } else {
-          console.log('⚠️ Spotify player not authenticated, skipping initialization');
-        }
+        */
       } catch (error) {
-        console.error('❌ Failed to initialize Spotify player service:', error);
-        this.spotifyPlayer = null;
+        console.error('❌ Failed to initialize Spotify player:', error);
       }
     }
   }

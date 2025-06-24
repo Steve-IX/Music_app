@@ -4,14 +4,15 @@
   "buildCommand": "cd apps/web && npm install && npm run build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "npm install",
+  "functions": {
+    "api/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "routes": [
     {
       "src": "^/assets/(.*)",
       "dest": "/assets/$1"
-    },
-    {
-      "src": "^/api/(.*)",
-      "dest": "/api/$1"
     },
     {
       "handle": "filesystem"

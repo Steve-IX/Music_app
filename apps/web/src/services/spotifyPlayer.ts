@@ -50,35 +50,33 @@ class SpotifyPlayerService {
   }
 
   private loadSpotifySDK(): void {
-    // Check if SDK is already loaded
-    if (window.Spotify) {
+    // Disable Spotify Web Playback SDK to prevent authentication errors
+    // The SDK requires Premium account and proper OAuth with user consent
+    console.log('🎵 Spotify Web Playback SDK disabled - requires Premium account');
+    this.isSdkLoaded = true;
+    return;
+
+    // Original SDK loading code commented out to prevent 401 errors
+    /*
+    if (this.isSdkLoaded || document.querySelector('script[src*="sdk.scdn.co"]')) {
       this.isSdkLoaded = true;
-      this.initializePlayer();
       return;
     }
 
-    // Load Spotify Web Playback SDK
+    console.log('🎵 Loading Spotify Web Playback SDK...');
+    
     const script = document.createElement('script');
     script.src = 'https://sdk.scdn.co/spotify-player.js';
     script.async = true;
     
-    script.onload = () => {
-      console.log('🎵 Spotify Web Playback SDK loaded');
-      this.isSdkLoaded = true;
-      
-      // Set up the ready callback
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        console.log('🎵 Spotify Web Playback SDK ready');
-        this.initializePlayer();
-      };
-    };
-    
-    script.onerror = () => {
-      console.error('❌ Failed to load Spotify Web Playback SDK');
-      this.setState({ error: 'Failed to load Spotify SDK' });
-    };
-    
     document.head.appendChild(script);
+    
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      console.log('🎵 Spotify Web Playback SDK ready');
+      this.isSdkLoaded = true;
+      this.initializePlayer();
+    };
+    */
   }
 
   private async initializePlayer(): Promise<void> {

@@ -5,6 +5,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Content-Type', 'application/json');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -35,7 +36,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       // Test API calls
       timestamp: new Date().toISOString(),
-      deployment_url: process.env.VERCEL_URL || 'localhost'
+      deployment_url: process.env.VERCEL_URL || 'localhost',
+      
+      // Additional debug info
+      all_env_keys: Object.keys(process.env).filter(key => 
+        key.includes('SPOTIFY') || 
+        key.includes('YOUTUBE') || 
+        key.includes('JAMENDO') ||
+        key.includes('VITE')
+      ).sort()
     };
 
     res.status(200).json(debug);

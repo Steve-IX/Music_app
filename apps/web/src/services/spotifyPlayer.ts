@@ -323,12 +323,14 @@ class SpotifyPlayerService {
 
       if (!response.ok) {
         const error = await response.json();
-        if (response.status === 403 && error.error.reason === 'PREMIUM_REQUIRED') {
+        if (response.status === 403 && error.error?.reason === 'PREMIUM_REQUIRED') {
           throw new Error('Premium required');
         } else if (response.status === 401) {
           throw new Error('Authentication expired');
+        } else if (response.status === 404) {
+          throw new Error('Track not available');
         } else {
-          throw new Error(error.error.message || 'Failed to play track');
+          throw new Error(error.error?.message || 'Failed to play track');
         }
       }
 
@@ -340,8 +342,20 @@ class SpotifyPlayerService {
 
     } catch (error: any) {
       console.error('❌ Spotify playback error:', error);
+      
+      let errorMessage = error.message;
+      if (error.message.includes('Premium')) {
+        errorMessage = 'Premium account required for in-site playback';
+      } else if (error.message.includes('Authentication')) {
+        errorMessage = 'Please reconnect to Spotify';
+        // Trigger re-authentication after a short delay
+        setTimeout(() => {
+          this.authService.startAuth();
+        }, 1000);
+      }
+      
       this.setState({ 
-        error: error.message || 'Failed to play track',
+        error: errorMessage,
         loading: false 
       });
       throw error;

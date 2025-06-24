@@ -151,6 +151,10 @@ class AudioPlayerService {
           this.currentSource = 'spotify';
           this.currentTrackId = trackId || 'spotify-external';
           
+          if (!this.spotifyPlayer) {
+            this.initializeSpotifyPlayer();
+          }
+          
           if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated()) {
             try {
               console.log('🎵 Attempting Spotify Web Playback SDK...');
@@ -163,17 +167,25 @@ class AudioPlayerService {
             } catch (error: any) {
               // If Web Playback fails (e.g. non-Premium user), fall back to external player
               console.warn('⚠️ Web Playback SDK failed:', error.message);
-              if (error.message?.includes('Premium required')) {
+              if (error.message?.includes('Premium')) {
                 console.log('ℹ️ Premium account required for in-site playback');
+                window.open(url, '_blank');
+                this.fallbackToSimulation(resolve);
+                return;
+              } else if (error.message?.includes('Authentication')) {
+                // Try to re-authenticate
+                this.spotifyPlayer.startAuth();
+                window.open(url, '_blank');
+                this.fallbackToSimulation(resolve);
+                return;
               }
             }
+          } else {
+            console.log('ℹ️ Spotify not authenticated - opening in external player');
+            window.open(url, '_blank');
+            this.fallbackToSimulation(resolve);
+            return;
           }
-          
-          // Fallback to external player
-          console.log('🎵 Opening Spotify track in external player');
-          window.open(url, '_blank');
-          this.fallbackToSimulation(resolve);
-          return;
         }
         
         // Enhanced audio source detection

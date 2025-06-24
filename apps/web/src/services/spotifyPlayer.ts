@@ -50,14 +50,6 @@ class SpotifyPlayerService {
   }
 
   private loadSpotifySDK(): void {
-    // Disable Spotify Web Playback SDK to prevent authentication errors
-    // The SDK requires Premium account and proper OAuth with user consent
-    console.log('🎵 Spotify Web Playback SDK disabled - requires Premium account');
-    this.isSdkLoaded = true;
-    return;
-
-    // Original SDK loading code commented out to prevent 401 errors
-    /*
     if (this.isSdkLoaded || document.querySelector('script[src*="sdk.scdn.co"]')) {
       this.isSdkLoaded = true;
       return;
@@ -76,7 +68,6 @@ class SpotifyPlayerService {
       this.isSdkLoaded = true;
       this.initializePlayer();
     };
-    */
   }
 
   private async initializePlayer(): Promise<void> {

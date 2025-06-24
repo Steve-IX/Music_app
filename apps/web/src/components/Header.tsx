@@ -41,11 +41,15 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar, onSearc
 
   const handleSpotifyAuth = () => {
     if (isSpotifyConnected) {
-      // Disconnect
-      spotifyPlayer.destroy();
-      setIsSpotifyConnected(false);
+      // Show confirmation before disconnecting
+      if (confirm('Disconnect from Spotify? You will need to reconnect to play Spotify tracks in-site.')) {
+        spotifyPlayer.destroy();
+        setIsSpotifyConnected(false);
+        console.log('🔐 Spotify disconnected by user');
+      }
     } else {
       // Connect
+      console.log('🔐 Starting Spotify authentication...');
       spotifyPlayer.startAuth();
     }
   };

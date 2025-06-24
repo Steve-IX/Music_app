@@ -89,12 +89,6 @@ class AudioPlayerService {
   private initializeSpotifyPlayer(): void {
     if (typeof window !== 'undefined' && !this.spotifyPlayer) {
       try {
-        // Disable Spotify player to prevent authentication errors
-        console.log('🎵 Spotify player disabled - requires Premium account and proper OAuth');
-        return;
-
-        // Original Spotify player initialization commented out
-        /*
         this.spotifyPlayer = new SpotifyPlayerService();
         
         // Only initialize if we have proper authentication
@@ -128,7 +122,6 @@ class AudioPlayerService {
             this.callbacks.onVolumeChange?.(volume);
           }
         });
-        */
       } catch (error) {
         console.error('❌ Failed to initialize Spotify player:', error);
       }
@@ -225,31 +218,38 @@ class AudioPlayerService {
         this.currentSource = 'spotify';
         this.currentTrackId = trackId || 'spotify-external';
         
-        if (this.spotifyPlayer && this.spotifyPlayer.isLoaded()) {
+        if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated()) {
           try {
             await this.spotifyPlayer.loadTrackFromUrl(url);
             console.log('✅ Spotify track loaded in-site');
             this.setState({ loading: false });
             resolve();
+            return;
           } catch (error) {
             console.warn('⚠️ Spotify in-site playback failed, falling back to external:', error);
-            // Fallback to external player
-            window.open(url, '_blank');
-            // Use simulation mode for UI feedback
-            this.isSimulationMode = true;
-            this.loadSimulationMode(this.currentTrackId, duration || 180);
-            this.setState({ loading: false });
-            resolve();
           }
         } else {
-          console.warn('⚠️ Spotify player not ready, opening in external player');
-          window.open(url, '_blank');
-          // Use simulation mode for UI feedback
-          this.isSimulationMode = true;
-          this.loadSimulationMode(this.currentTrackId, duration || 180);
-          this.setState({ loading: false });
-          resolve();
+          console.log('🔐 Spotify player not authenticated - user needs to connect Spotify');
         }
+        
+        // Fallback to external player
+        console.log('🎵 Spotify web URL detected - opening in external player');
+        try {
+          const newWindow = window.open(url, '_blank');
+          if (!newWindow) {
+            // Popup blocked, try current tab
+            window.location.href = url;
+          }
+          console.log('✅ Opened Spotify track in external player');
+        } catch (error) {
+          console.error('❌ Failed to open Spotify URL:', error);
+        }
+        
+        // Use simulation mode for UI feedback
+        this.isSimulationMode = true;
+        this.loadSimulationMode(this.currentTrackId, duration || 180);
+        this.setState({ loading: false });
+        resolve();
         return;
       }
 

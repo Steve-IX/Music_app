@@ -16,7 +16,7 @@ export interface Track {
   genres?: string[];
   releaseDate?: string;
   license?: string;
-  audioType?: 'preview' | 'web' | 'none';
+  audioType?: 'preview' | 'web' | 'none' | 'full';
   hasAudio?: boolean;
 }
 
@@ -100,8 +100,8 @@ class SpotifyService {
           genres: [],
           releaseDate: item.album?.release_date,
           license: 'Spotify',
-          audioType: 'preview',
-          hasAudio: !!item.preview_url
+          audioType: item.preview_url ? 'preview' : (item.external_urls?.spotify ? 'web' : 'none'),
+          hasAudio: !!(item.preview_url || item.external_urls?.spotify)
         }));
 
         apiArtists = (response.data.artists?.items || []).map((item: any) => ({
@@ -619,6 +619,64 @@ const DEMO_SPOTIFY_ALBUMS: Album[] = [
     releaseDate: '2022-10-21',
     trackCount: 13,
     source: 'spotify'
+  }
+];
+
+// Demo tracks with working audio from free sources
+const DEMO_WORKING_TRACKS: Track[] = [
+  {
+    id: 'demo:working:1',
+    title: 'Chill Ambient Background',
+    artist: 'Free Music Archive',
+    album: 'Ambient Collection',
+    duration: 180,
+    url: 'https://archive.org/download/FMA_Various_Artists_Ambient/01-Birocratic-Fresh_Air.mp3',
+    previewUrl: 'https://archive.org/download/FMA_Various_Artists_Ambient/01-Birocratic-Fresh_Air.mp3',
+    coverUrl: 'https://picsum.photos/400/400?random=101&blur=1',
+    source: 'demo',
+    explicit: false,
+    popularity: 0.8,
+    genres: ['ambient', 'chill'],
+    releaseDate: '2023-01-01',
+    license: 'Creative Commons',
+    audioType: 'full',
+    hasAudio: true
+  },
+  {
+    id: 'demo:working:2',
+    title: 'Upbeat Electronic',
+    artist: 'Freesound Community',
+    album: 'Electronic Vibes',
+    duration: 120,
+    url: 'https://freesound.org/data/previews/316/316847_5123451-lq.mp3',
+    previewUrl: 'https://freesound.org/data/previews/316/316847_5123451-lq.mp3',
+    coverUrl: 'https://picsum.photos/400/400?random=102&blur=1',
+    source: 'demo',
+    explicit: false,
+    popularity: 0.75,
+    genres: ['electronic', 'upbeat'],
+    releaseDate: '2023-02-15',
+    license: 'Creative Commons',
+    audioType: 'full',
+    hasAudio: true
+  },
+  {
+    id: 'demo:working:3',
+    title: 'Piano Melody',
+    artist: 'Classical Archive',
+    album: 'Piano Solo',
+    duration: 150,
+    url: 'https://archive.org/download/MusOpen-DebussyClairDeLune/01-Claude_Debussy-Clair_de_Lune.mp3',
+    previewUrl: 'https://archive.org/download/MusOpen-DebussyClairDeLune/01-Claude_Debussy-Clair_de_Lune.mp3',
+    coverUrl: 'https://picsum.photos/400/400?random=103&blur=1',
+    source: 'demo',
+    explicit: false,
+    popularity: 0.85,
+    genres: ['classical', 'piano'],
+    releaseDate: '2023-03-10',
+    license: 'Public Domain',
+    audioType: 'full',
+    hasAudio: true
   }
 ];
 

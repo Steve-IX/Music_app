@@ -76,13 +76,22 @@ class SpotifyAuthService {
         return false;
       }
 
-      // Check if we have stored tokens
+      // Check if we have stored tokens that are still valid
       if (this.tokens && this.isTokenValid()) {
         console.log('✅ Using stored Spotify tokens');
         return true;
       }
 
-      // Check if we're returning from OAuth
+      // Check for auth code from callback page
+      const storedCode = sessionStorage.getItem('spotify_auth_code');
+      if (storedCode) {
+        console.log('🔄 Found stored auth code, exchanging for tokens...');
+        sessionStorage.removeItem('spotify_auth_code');
+        const success = await this.exchangeCodeForTokens(storedCode);
+        return success;
+      }
+
+      // Check if we're returning from OAuth (URL parameters)
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
@@ -92,7 +101,7 @@ class SpotifyAuthService {
         console.log('🔄 Processing OAuth callback...');
         const success = await this.exchangeCodeForTokens(code);
         
-        // Clean up URL
+        // Clean up URL and state
         window.history.replaceState({}, document.title, window.location.pathname);
         localStorage.removeItem('spotify_auth_state');
         

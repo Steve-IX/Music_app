@@ -88,21 +88,21 @@ class AudioPlayerService {
 
   private initializeSpotifyPlayer(): void {
     if (typeof window !== 'undefined' && !this.spotifyPlayer) {
-      try {
-        this.spotifyPlayer = new SpotifyPlayerService();
+    try {
+      this.spotifyPlayer = new SpotifyPlayerService();
         
         // Only initialize if we have proper authentication
-        this.spotifyPlayer.setCallbacks({
-          onPlay: () => {
+      this.spotifyPlayer.setCallbacks({
+        onPlay: () => {
             console.log('▶️ Spotify player onPlay callback triggered');
-            this.setState({ isPlaying: true });
-            this.callbacks.onPlay?.();
-          },
-          onPause: () => {
+          this.setState({ isPlaying: true });
+          this.callbacks.onPlay?.();
+        },
+        onPause: () => {
             console.log('⏸️ Spotify player onPause callback triggered');
-            this.setState({ isPlaying: false });
-            this.callbacks.onPause?.();
-          },
+          this.setState({ isPlaying: false });
+          this.callbacks.onPause?.();
+        },
           onEnd: () => {
             console.log('⏹️ Spotify player onEnd callback triggered');
             this.setState({ isPlaying: false });
@@ -111,18 +111,18 @@ class AudioPlayerService {
           onLoadError: (error: any) => {
             console.error('❌ Spotify player load error:', error);
             this.setState({ error: 'Failed to load Spotify track' });
-            this.callbacks.onLoadError?.(error);
-          },
+          this.callbacks.onLoadError?.(error);
+        },
           onTimeUpdate: (time: number) => {
-            this.setState({ currentTime: time });
-            this.callbacks.onTimeUpdate?.(time);
-          },
+          this.setState({ currentTime: time });
+          this.callbacks.onTimeUpdate?.(time);
+        },
           onVolumeChange: (volume: number) => {
             this.setState({ volume: volume });
-            this.callbacks.onVolumeChange?.(volume);
+          this.callbacks.onVolumeChange?.(volume);
           }
-        });
-      } catch (error) {
+      });
+    } catch (error) {
         console.error('❌ Failed to initialize Spotify player:', error);
       }
     }
@@ -218,7 +218,7 @@ class AudioPlayerService {
         this.currentSource = 'spotify';
         this.currentTrackId = trackId || 'spotify-external';
         
-        if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated() && this.spotifyPlayer.isLoaded()) {
+        if (this.spotifyPlayer && this.spotifyPlayer.isAuthenticated()) {
           try {
             console.log('🎵 Attempting Spotify Web Playback SDK...');
             await this.spotifyPlayer.loadTrackFromUrl(url);
@@ -230,65 +230,27 @@ class AudioPlayerService {
           } catch (error: any) {
             console.warn('⚠️ Spotify Web Playback SDK failed:', error.message);
             
+            // If it's a premium account error, fall back to external player
+            if (error.message.includes('Premium')) {
+              console.log('⚠️ Premium account required - falling back to external player');
+              window.open(url, '_blank');
+              this.isSimulationMode = true;
+              this.loadSimulationMode(this.currentTrackId, duration || 180);
+              this.setState({ loading: false });
+              resolve();
+              return;
+            }
+            
             // If it's an authentication error, try to re-authenticate
             if (error.message.includes('Authentication') || error.message.includes('401')) {
               console.log('🔐 Attempting to re-authenticate with Spotify...');
               this.spotifyPlayer.startAuth();
-            }
-            
-            // Don't immediately fall back to external - try preview URL first if available
-            console.log('🎵 Checking for Spotify preview URL...');
-            // Extract track ID and try to get preview URL
-            const trackId = this.spotifyPlayer.extractTrackId ? this.spotifyPlayer.extractTrackId(url) : null;
-            if (trackId) {
-              try {
-                // Try to get track info including preview URL
-                const trackInfo = await this.getSpotifyTrackInfo(trackId);
-                if (trackInfo && trackInfo.preview_url) {
-                  console.log('🎵 Found Spotify preview URL, using Howler.js');
-                  this.currentSource = 'howler';
-                  this.isSimulationMode = false;
-                  
-                  this.currentHowl = new Howl({
-                    src: [trackInfo.preview_url],
-                    html5: true,
-                    preload: true,
-                    volume: this.state.volume / 100,
-                    onload: () => {
-                      console.log('✅ Spotify preview loaded successfully');
-                      this.setState({ 
-                        loading: false, 
-                        duration: 30, // Previews are 30 seconds
-                        error: null 
-                      });
-                      this.callbacks.onLoad?.();
-                      resolve();
-                    },
-                    onloaderror: (id, error) => {
-                      console.warn('⚠️ Spotify preview failed to load, using simulation');
-                      this.fallbackToSimulation(resolve);
-                    },
-                    onplay: () => {
-                      this.setState({ isPlaying: true });
-                      this.startTimeUpdate();
-                      this.callbacks.onPlay?.();
-                    },
-                    onpause: () => {
-                      this.setState({ isPlaying: false });
-                      this.stopTimeUpdate();
-                      this.callbacks.onPause?.();
-                    },
-                    onend: () => {
-                      this.setState({ isPlaying: false, currentTime: 0 });
-                      this.stopTimeUpdate();
-                      this.callbacks.onEnd?.();
-                    }
-                  });
-                  return;
-                }
-              } catch (previewError) {
-                console.warn('⚠️ Failed to get Spotify track info:', previewError);
-              }
+              // Use simulation mode while re-authenticating
+              this.isSimulationMode = true;
+              this.loadSimulationMode(this.currentTrackId, duration || 180);
+              this.setState({ loading: false });
+              resolve();
+              return;
             }
           }
         } else {

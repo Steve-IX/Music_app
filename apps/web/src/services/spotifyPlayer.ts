@@ -205,43 +205,28 @@ class SpotifyPlayerService {
 
   async loadTrack(trackId: string): Promise<void> {
     if (!this.isInitialized || !this.state.deviceId) {
-      console.warn('⚠️ Spotify player not ready, falling back to external player');
-      this.setState({ error: 'Spotify player not ready - opening in Spotify app' });
+      console.warn('⚠️ Spotify player not ready, attempting initialization');
+      await this.initializePlayer();
       
-      // Fallback to opening in Spotify with better user feedback
-      const spotifyUrl = `https://open.spotify.com/track/${trackId}`;
-      console.log('🔄 Opening track in Spotify app:', spotifyUrl);
-      
-      // Try to open in new tab, fallback to current tab if blocked
-      try {
-        const newWindow = window.open(spotifyUrl, '_blank');
-        if (!newWindow) {
-          // Popup blocked, open in current tab
-          window.location.href = spotifyUrl;
-        }
-      } catch (error) {
-        console.error('❌ Failed to open Spotify URL:', error);
-        window.location.href = spotifyUrl;
+      // Check again after initialization attempt
+      if (!this.isInitialized || !this.state.deviceId) {
+        throw new Error('Spotify player initialization failed');
       }
-      
-      return;
     }
 
+    this.setState({ loading: true, error: null });
+    
     try {
-      this.setState({ loading: true, error: null });
-      
-      const accessToken = this.authService.getAccessToken();
-      if (!accessToken) {
-        throw new Error('No access token available');
+      const token = this.authService.getAccessToken();
+      if (!token) {
+        throw new Error('Authentication required');
       }
 
-      console.log('🎵 Loading Spotify track:', trackId);
-      
-      // Enhanced API call with better error handling
+      // Try to play the track
       const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.state.deviceId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -250,68 +235,51 @@ class SpotifyPlayerService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        const error = await response.json();
+        console.error('❌ Spotify play error:', error);
         
-        // Enhanced error messages based on status codes
-        switch (response.status) {
-          case 401:
-            errorMessage = 'Authentication expired - please reconnect to Spotify';
-            break;
-          case 403:
-            errorMessage = 'Premium required for this track';
-            break;
-          case 404:
-            errorMessage = 'Track not found or unavailable';
-            break;
-          case 429:
-            errorMessage = 'Too many requests - please wait a moment';
-            break;
-          case 502:
-          case 503:
-          case 504:
-            errorMessage = 'Spotify service temporarily unavailable';
-            break;
-          default:
-            errorMessage = `Playback error: ${response.statusText}`;
+        // Handle specific error cases
+        if (response.status === 403 || error.error?.reason === 'PREMIUM_REQUIRED') {
+          throw new Error('Premium account required to play tracks in-site');
+        } else if (response.status === 401) {
+          throw new Error('Authentication required');
+        } else if (response.status === 404) {
+          throw new Error('Track not available in your region');
+        } else {
+          throw new Error(error.error?.message || 'Failed to play track');
         }
-        
-        throw new Error(errorMessage);
       }
 
-      console.log('✅ Spotify track loaded successfully:', trackId);
       this.setState({ 
         trackId,
         loading: false,
         error: null
       });
-      this.callbacks.onLoad?.();
 
+      console.log('✅ Spotify track loaded successfully:', trackId);
     } catch (error: any) {
       console.error('❌ Failed to load Spotify track:', error);
       
       let userMessage = `Failed to load track: ${error.message}`;
       
-      // Provide fallback options based on error type
+      // Provide specific error messages
       if (error.message.includes('Premium')) {
-        userMessage = 'Premium required - opening in Spotify app';
-        // Open in Spotify app as fallback
-        window.open(`https://open.spotify.com/track/${trackId}`, '_blank');
-      } else if (error.message.includes('unavailable')) {
-        userMessage = 'Track unavailable in your region';
+        userMessage = 'Premium account required to play tracks in-site';
       } else if (error.message.includes('Authentication')) {
         userMessage = 'Please reconnect to Spotify';
         // Trigger re-authentication
         setTimeout(() => {
           this.authService.startAuth();
         }, 1000);
+      } else if (error.message.includes('region')) {
+        userMessage = 'Track not available in your region';
       }
       
       this.setState({ 
         error: userMessage,
         loading: false 
       });
-      this.callbacks.onLoadError?.(error);
+      throw error;
     }
   }
 

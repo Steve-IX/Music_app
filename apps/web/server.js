@@ -10,7 +10,7 @@ app.use('/api/jamendo', async (req, res) => {
   try {
     const axios = require('axios');
     const { type = 'tracks', query = '', limit = 20 } = req.query;
-    const clientId = process.env.VITE_JAMENDO_CLIENT_ID;
+    const clientId = process.env.JAMENDO_CLIENT_ID || process.env.VITE_JAMENDO_CLIENT_ID;
 
     if (!clientId) {
       return res.status(500).json({ error: 'Jamendo API key not configured' });
@@ -67,8 +67,8 @@ app.use('/api/spotify', async (req, res) => {
   try {
     const axios = require('axios');
     const { query = '', limit = 20 } = req.query;
-    const clientId = process.env.VITE_SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.VITE_SPOTIFY_CLIENT_SECRET;
+    const clientId = process.env.SPOTIFY_CLIENT_ID || process.env.VITE_SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET || process.env.VITE_SPOTIFY_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       return res.status(500).json({ error: 'Spotify credentials not configured' });
@@ -114,7 +114,7 @@ app.use('/api/youtube', async (req, res) => {
   try {
     const axios = require('axios');
     const { query = '', limit = 20 } = req.query;
-    const apiKey = process.env.VITE_YOUTUBE_API_KEY;
+    const apiKey = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
 
     if (!apiKey) {
       return res.status(500).json({ error: 'YouTube API key not configured' });

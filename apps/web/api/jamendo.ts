@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { type = 'tracks', query = '', limit = 20 } = req.query;
-    const clientId = process.env.VITE_JAMENDO_CLIENT_ID;
+    const clientId = process.env.JAMENDO_CLIENT_ID || process.env.VITE_JAMENDO_CLIENT_ID;
 
     if (!clientId) {
       return res.status(500).json({ error: 'Jamendo API key not configured' });

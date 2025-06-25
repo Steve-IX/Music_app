@@ -61,12 +61,21 @@ class YouTubePlayerService {
     // Create script tag for YouTube IFrame API
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
+    tag.async = true;
+    tag.crossOrigin = 'anonymous';
+    
+    // Add error handling
+    tag.onerror = () => {
+      console.error('Failed to load YouTube IFrame API');
+      this.setState({ error: 'Failed to load YouTube player' });
+    };
+
     const firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
     // Set up callback for when API is ready
     window.onYouTubeIframeAPIReady = () => {
-      console.log('YouTube IFrame API ready');
+      console.log('✅ YouTube IFrame API ready');
       this.isApiReady = true;
       this.initializePlayer();
       
@@ -88,10 +97,11 @@ class YouTubePlayerService {
     try {
       // Get the current origin for postMessage
       const origin = window.location.origin;
+      console.log('🎵 Initializing YouTube player with origin:', origin);
       
       this.player = new window.YT.Player('youtube-player', {
-        height: '0',
-        width: '0',
+        height: '360',
+        width: '640',
         playerVars: {
           autoplay: 0,
           controls: 0,
@@ -103,7 +113,7 @@ class YouTubePlayerService {
           rel: 0,
           showinfo: 0,
           playsinline: 1,
-          origin: origin // Set the origin for postMessage
+          origin: origin
         },
         events: {
           onReady: this.onPlayerReady.bind(this),
@@ -113,13 +123,16 @@ class YouTubePlayerService {
       });
 
       // Add error handler for postMessage
-      window.addEventListener('error', (e) => {
-        if (e.message.includes('postMessage') || e.message.includes('YouTube')) {
-          console.warn('YouTube postMessage error (non-critical):', e.message);
-          // Prevent error from bubbling up
-          e.preventDefault();
+      window.addEventListener('message', (event) => {
+        // Only accept messages from YouTube
+        if (event.origin !== 'https://www.youtube.com') {
+          return;
         }
-      }, true);
+        // Handle YouTube messages here
+        if (event.data && typeof event.data === 'object') {
+          console.log('📨 YouTube postMessage received:', event.data);
+        }
+      }, false);
 
     } catch (error) {
       console.error('Failed to initialize YouTube player:', error);

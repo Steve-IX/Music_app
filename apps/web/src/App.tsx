@@ -61,12 +61,14 @@ function App() {
           <div 
             id="youtube-player" 
             style={{ 
-              position: 'absolute', 
-              top: '-9999px', 
-              left: '-9999px',
-              width: '0',
-              height: '0',
-              overflow: 'hidden'
+              position: 'fixed',
+              bottom: 0,
+              right: 0,
+              width: '480px',
+              height: '270px',
+              opacity: 0,
+              pointerEvents: 'none',
+              zIndex: -1
             }}
           />
         </div>

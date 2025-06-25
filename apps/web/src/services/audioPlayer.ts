@@ -224,34 +224,36 @@ class AudioPlayerService {
           return;
         }
 
-        // Handle YouTube URLs - open in external player (no embedding allowed)
+        // Handle YouTube URLs - play within site
         if (isYouTubeUrl || isYouTubeVideoId) {
-          console.log('🎵 YouTube URL detected - opening in external player');
+          console.log('🎵 YouTube URL detected - playing in-site');
           this.currentSource = 'youtube';
-          this.currentTrackId = trackId || 'youtube-external';
+          this.currentTrackId = trackId || 'youtube-video';
           
           try {
             // Extract video ID if needed
-            let videoUrl = url;
-            if (isYouTubeVideoId) {
-              videoUrl = `https://www.youtube.com/watch?v=${url}`;
+            let videoId = url;
+            if (isYouTubeUrl) {
+              videoId = this.extractVideoId(url) || '';
             }
             
-            // Open in new tab/window
-            window.open(videoUrl, '_blank');
-            console.log('✅ Opened YouTube video in external player');
+            if (!videoId) {
+              throw new Error('Invalid YouTube URL');
+            }
             
-            // Use simulation mode for UI feedback
-            this.isSimulationMode = true;
-            this.loadSimulationMode(this.currentTrackId, duration || 180);
-            this.setState({ loading: false });
+            // Load video in YouTube player
+            this.loadYouTubeTrack(videoId);
+            console.log('✅ Loading YouTube video in player');
             resolve();
           } catch (error) {
-            console.error('❌ Failed to open YouTube URL:', error);
+            console.error('❌ Failed to load YouTube video:', error);
             this.setState({ 
               loading: false, 
-              error: 'Failed to open YouTube video' 
+              error: 'Failed to load YouTube video' 
             });
+            // Fallback to simulation mode
+            this.isSimulationMode = true;
+            this.loadSimulationMode(this.currentTrackId || 'youtube-fallback', duration || 180);
             resolve();
           }
           return;

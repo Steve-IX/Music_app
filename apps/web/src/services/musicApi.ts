@@ -273,9 +273,13 @@ class YouTubeService {
     try {
       console.log('🎵 Searching YouTube via proxy...');
       
+      // If query is a video ID, modify the search to be more specific
+      const isVideoId = /^[a-zA-Z0-9_-]{11}$/.test(query);
+      const searchQuery = isVideoId ? `id:${query}` : query;
+      
       const response = await this.api.get('/youtube', {
         params: {
-          query,
+          query: searchQuery,
           limit,
         },
       });
@@ -286,25 +290,26 @@ class YouTubeService {
       }
 
       const tracks: Track[] = response.data.items.map((item: any) => {
-        const videoId = item.id.videoId;
-        const duration = this.parseDuration(item.snippet?.duration || 'PT3M');
+        const videoId = item.id.videoId || (isVideoId ? query : null);
+        const duration = this.parseDuration(item.contentDetails?.duration || item.snippet?.duration || 'PT3M');
+        const title = this.cleanupTitle(item.snippet?.title || 'Unknown Title');
         
         return {
           id: `youtube:${videoId}`,
-          title: (item.snippet?.title || 'Unknown Title').replace(/\(Official Music Video\)|\(Official Video\)|\(Official\)|\(Music Video\)|\(MV\)/gi, '').trim(),
-          artist: item.snippet?.channelTitle || 'Unknown Artist',
-          album: 'YouTube Music',
+          title: title.title,
+          artist: title.artist || item.snippet?.channelTitle || 'Unknown Artist',
+          album: title.album || 'YouTube Music',
           duration: duration,
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          previewUrl: `https://www.youtube.com/watch?v=${videoId}`,
-          coverUrl: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
+          url: videoId,  // Just store the ID, let the player handle the full URL
+          previewUrl: null, // YouTube doesn't provide preview URLs
+          coverUrl: this.getBestThumbnail(item.snippet?.thumbnails),
           source: 'youtube' as const,
           explicit: false,
           popularity: 0.8,
           genres: ['Music'],
           releaseDate: item.snippet?.publishedAt,
           license: 'YouTube',
-          audioType: 'web',
+          audioType: 'full',
           hasAudio: true
         };
       });
@@ -315,6 +320,42 @@ class YouTubeService {
       console.error('YouTube search failed:', error);
       return { tracks: [] };
     }
+  }
+
+  private cleanupTitle(title: string): { title: string; artist?: string; album?: string } {
+    // Remove common YouTube title extras
+    title = title.replace(/\(Official Music Video\)|\(Official Video\)|\(Official\)|\(Music Video\)|\(MV\)|\(Audio\)|\(Lyric Video\)|\[.*?\]/gi, '').trim();
+    
+    // Try to split artist and title if they're separated by common patterns
+    const patterns = [
+      /^(.+?)\s*[-–]\s*(.+)$/,  // Artist - Title
+      /^(.+?)\s*[:|]\s*(.+)$/,  // Artist : Title
+      /^(.+?)\s*"\s*(.+)\s*"$/  // Artist "Title"
+    ];
+    
+    for (const pattern of patterns) {
+      const match = title.match(pattern);
+      if (match) {
+        return {
+          artist: match[1].trim(),
+          title: match[2].trim()
+        };
+      }
+    }
+    
+    return { title };
+  }
+
+  private getBestThumbnail(thumbnails: any): string {
+    if (!thumbnails) return '';
+    // Try to get the highest quality thumbnail
+    const qualities = ['maxres', 'high', 'medium', 'standard', 'default'];
+    for (const quality of qualities) {
+      if (thumbnails[quality]?.url) {
+        return thumbnails[quality].url;
+      }
+    }
+    return '';
   }
 
   // Parse YouTube duration format (PT4M13S -> 253 seconds)

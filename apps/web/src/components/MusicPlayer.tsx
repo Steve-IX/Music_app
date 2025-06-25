@@ -240,6 +240,9 @@ const MusicPlayer: React.FC = () => {
 
   return (
     <div className="music-player">
+      {/* Hidden YouTube player container */}
+      <div id="youtube-player" style={{ display: 'none' }}></div>
+      
       {/* Error display */}
       {error && (
         <div className="player-error">

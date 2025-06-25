@@ -86,6 +86,9 @@ class YouTubePlayerService {
     }
 
     try {
+      // Get the current origin for postMessage
+      const origin = window.location.origin;
+      
       this.player = new window.YT.Player('youtube-player', {
         height: '0',
         width: '0',
@@ -100,6 +103,7 @@ class YouTubePlayerService {
           rel: 0,
           showinfo: 0,
           playsinline: 1,
+          origin: origin // Set the origin for postMessage
         },
         events: {
           onReady: this.onPlayerReady.bind(this),
@@ -107,6 +111,16 @@ class YouTubePlayerService {
           onError: this.onPlayerError.bind(this),
         },
       });
+
+      // Add error handler for postMessage
+      window.addEventListener('error', (e) => {
+        if (e.message.includes('postMessage') || e.message.includes('YouTube')) {
+          console.warn('YouTube postMessage error (non-critical):', e.message);
+          // Prevent error from bubbling up
+          e.preventDefault();
+        }
+      }, true);
+
     } catch (error) {
       console.error('Failed to initialize YouTube player:', error);
       this.setState({ error: 'Failed to initialize YouTube player' });

@@ -98,7 +98,17 @@ class SpotifyPlayerService {
             this.setState({ error: 'Authentication required' });
           }
         },
-        volume: 0.5
+        volume: 0.5,
+        enableMediaSession: true,
+        mediaKeySystemConfig: {
+          preferredKeySystems: ['com.widevine.alpha', 'com.microsoft.playready', 'com.apple.fps'],
+          video: {
+            robustness: 'SW_SECURE_CRYPTO'
+          },
+          audio: {
+            robustness: 'SW_SECURE_CRYPTO'
+          }
+        }
       });
 
       // Error handling

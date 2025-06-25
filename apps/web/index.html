@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#667eea" />
     <meta name="description" content="MusicStream - Music anywhere, anytime, beautifully" />
+    
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://www.googleapis.com;
+      frame-src 'self' https://www.youtube.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' https: data:;
+      media-src 'self' https:;
+      connect-src 'self' https://*.youtube.com https://www.googleapis.com https://api.spotify.com https://api.jamendo.com;
+      font-src 'self' data:;
+    ">
+    
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/logo192.png" />
     <title>🎵 MusicStream</title>

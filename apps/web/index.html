@@ -1,31 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#667eea" />
-    <meta name="description" content="MusicStream - Music anywhere, anytime, beautifully" />
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- Content Security Policy -->
+    <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://www.googleapis.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://www.googleapis.com https://*.ytimg.com;
       frame-src 'self' https://www.youtube.com;
-      style-src 'self' 'unsafe-inline';
-      img-src 'self' https: data:;
-      media-src 'self' https:;
+      img-src 'self' https: data: blob:;
+      media-src 'self' https: blob:;
       connect-src 'self' https://*.youtube.com https://www.googleapis.com https://api.spotify.com https://api.jamendo.com;
+      style-src 'self' 'unsafe-inline';
       font-src 'self' data:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
     ">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="MusicStream - Your Universal Music Player" />
     
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="apple-touch-icon" href="/logo192.png" />
-    <title>🎵 MusicStream</title>
+    <title>MusicStream</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Hidden YouTube Player Container -->
+    <div id="youtube-player" style="position: absolute; top: -9999px; left: -9999px;"></div>
   </body>
 </html> 

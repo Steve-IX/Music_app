@@ -66,59 +66,56 @@ class YouTubePlayerService {
     };
 
     try {
-      // Create script tag for YouTube IFrame API
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      tag.async = true;
-      tag.crossOrigin = 'anonymous';
-      
-      // Add error handling
-      tag.onerror = (error) => {
-        console.error('Failed to load YouTube IFrame API:', error);
-        this.setState({ 
+      // Try loading from multiple CDN sources
+      const loadFromCDN = (src: string) => {
+        return new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.async = true;
+          script.crossOrigin = 'anonymous';
+          
+          script.onload = () => {
+            console.log(`✅ YouTube IFrame API loaded from ${src}`);
+            resolve();
+          };
+          
+          script.onerror = () => {
+            console.warn(`⚠️ Failed to load YouTube IFrame API from ${src}`);
+            reject();
+          };
+
+          document.head.appendChild(script);
+        });
+      };
+
+      // Try multiple CDN sources in sequence
+      const loadAPIs = async () => {
+        try {
+          await loadFromCDN('https://www.youtube.com/iframe_api');
+        } catch {
+          try {
+            // Fallback to iframe_api directly
+            await loadFromCDN('https://www.youtube.com/s/player/iframe_api');
+          } catch {
+            // Final fallback to Google APIs CDN
+            await loadFromCDN('https://www.googleapis.com/youtube/v3/player_api');
+          }
+        }
+      };
+
+      loadAPIs().catch((error) => {
+        console.error('❌ Failed to load YouTube IFrame API:', error);
+        this.setState({
           error: 'Failed to load YouTube player',
-          loading: false 
+          loading: false
         });
-        // Try alternative loading method
-        this.loadYouTubeAPIAlternative();
-      };
+      });
 
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
     } catch (error) {
-      console.error('Error loading YouTube IFrame API:', error);
-      // Try alternative loading method
-      this.loadYouTubeAPIAlternative();
-    }
-  }
-
-  private loadYouTubeAPIAlternative(): void {
-    try {
-      // Alternative loading method using dynamic import
-      const script = document.createElement('script');
-      script.src = 'https://www.youtube.com/iframe_api';
-      script.async = true;
-      script.defer = true;
-      script.crossOrigin = 'anonymous';
-      
-      // Add CSP-compatible attributes
-      script.setAttribute('referrerpolicy', 'strict-origin');
-      
-      // Add to document head instead of body
-      document.head.appendChild(script);
-      
-      script.onerror = () => {
-        console.error('Alternative YouTube IFrame API loading failed');
-        this.setState({ 
-          error: 'Could not load YouTube player. Please try again later.',
-          loading: false 
-        });
-      };
-    } catch (error) {
-      console.error('Alternative YouTube API loading failed:', error);
-      this.setState({ 
-        error: 'YouTube player unavailable',
-        loading: false 
+      console.error('❌ Error loading YouTube IFrame API:', error);
+      this.setState({
+        error: 'Failed to initialize YouTube player',
+        loading: false
       });
     }
   }
@@ -171,10 +168,10 @@ class YouTubePlayerService {
       }, false);
 
     } catch (error) {
-      console.error('Error initializing YouTube player:', error);
-      this.setState({ 
+      console.error('❌ Error initializing YouTube player:', error);
+      this.setState({
         error: 'Failed to initialize YouTube player',
-        loading: false 
+        loading: false
       });
     }
   }

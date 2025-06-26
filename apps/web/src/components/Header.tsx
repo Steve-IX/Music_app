@@ -43,8 +43,8 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar, onSearc
     if (isSpotifyConnected) {
       // Show confirmation before disconnecting
       if (confirm('Disconnect from Spotify? You will need to reconnect to play Spotify tracks in-site.')) {
-        spotifyPlayer.destroy();
-        setIsSpotifyConnected(false);
+      spotifyPlayer.destroy();
+      setIsSpotifyConnected(false);
         console.log('🔐 Spotify disconnected by user');
       }
     } else {

@@ -58,6 +58,22 @@ class YouTubePlayerService {
       return;
     }
 
+    // Create container for the player first
+    let playerContainer = document.getElementById('youtube-player');
+    if (!playerContainer) {
+      playerContainer = document.createElement('div');
+      playerContainer.id = 'youtube-player';
+      playerContainer.style.position = 'fixed';
+      playerContainer.style.bottom = '0';
+      playerContainer.style.right = '0';
+      playerContainer.style.width = '480px';
+      playerContainer.style.height = '270px';
+      playerContainer.style.opacity = '0';
+      playerContainer.style.pointerEvents = 'none';
+      playerContainer.style.zIndex = '-1';
+      document.body.appendChild(playerContainer);
+    }
+
     // Set up callback for when API is ready
     window.onYouTubeIframeAPIReady = () => {
       console.log('✅ YouTube IFrame API ready');
@@ -66,50 +82,23 @@ class YouTubePlayerService {
     };
 
     try {
-      // Try loading from multiple CDN sources
-      const loadFromCDN = (src: string) => {
-        return new Promise<void>((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = src;
-          script.async = true;
-          script.crossOrigin = 'anonymous';
-          
-          script.onload = () => {
-            console.log(`✅ YouTube IFrame API loaded from ${src}`);
-            resolve();
-          };
-          
-          script.onerror = () => {
-            console.warn(`⚠️ Failed to load YouTube IFrame API from ${src}`);
-            reject();
-          };
-
-          document.head.appendChild(script);
-        });
-      };
-
-      // Try multiple CDN sources in sequence
-      const loadAPIs = async () => {
-        try {
-          await loadFromCDN('https://www.youtube.com/iframe_api');
-        } catch {
-          try {
-            // Fallback to iframe_api directly
-            await loadFromCDN('https://www.youtube.com/s/player/iframe_api');
-          } catch {
-            // Final fallback to Google APIs CDN
-            await loadFromCDN('https://www.googleapis.com/youtube/v3/player_api');
-          }
-        }
-      };
-
-      loadAPIs().catch((error) => {
-        console.error('❌ Failed to load YouTube IFrame API:', error);
+      // Create script element
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      script.defer = true;
+      
+      // Add error handling
+      script.onerror = () => {
+        console.error('❌ Failed to load YouTube IFrame API');
         this.setState({
           error: 'Failed to load YouTube player',
           loading: false
         });
-      });
+      };
+
+      // Add to document head
+      document.head.appendChild(script);
 
     } catch (error) {
       console.error('❌ Error loading YouTube IFrame API:', error);
@@ -133,8 +122,9 @@ class YouTubePlayerService {
       console.log('🎵 Initializing YouTube player with origin:', origin);
       
       this.player = new window.YT.Player('youtube-player', {
-        height: '360',
-        width: '640',
+        height: '270',
+        width: '480',
+        videoId: '',  // Start with empty video
         playerVars: {
           autoplay: 0,
           controls: 0,
@@ -154,18 +144,6 @@ class YouTubePlayerService {
           onError: this.onPlayerError.bind(this)
         }
       });
-
-      // Add error handler for postMessage
-      window.addEventListener('message', (event) => {
-        // Only accept messages from YouTube
-        if (event.origin !== 'https://www.youtube.com') {
-          return;
-        }
-        // Handle YouTube messages here
-        if (event.data && typeof event.data === 'object') {
-          console.log('📨 YouTube postMessage received:', event.data);
-        }
-      }, false);
 
     } catch (error) {
       console.error('❌ Error initializing YouTube player:', error);

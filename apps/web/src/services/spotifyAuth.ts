@@ -78,8 +78,8 @@ class SpotifyAuthService {
 
       // Check if we have stored tokens that are still valid
       if (this.tokens && this.isTokenValid()) {
-        console.log('✅ Using stored Spotify tokens');
-        return true;
+          console.log('✅ Using stored Spotify tokens');
+          return true;
       }
 
       // Check for auth code from callback page
@@ -102,7 +102,7 @@ class SpotifyAuthService {
         const success = await this.exchangeCodeForTokens(code);
         
         // Clean up URL and state
-        window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.pathname);
         localStorage.removeItem('spotify_auth_state');
         
         return success;
@@ -163,7 +163,7 @@ class SpotifyAuthService {
       this.tokens = response.data;
       this.tokenExpiry = Date.now() + (this.tokens!.expires_in * 1000);
       this.storeTokens(this.tokens!);
-      
+
       console.log('✅ Spotify tokens obtained successfully');
       console.log('🔍 Token scopes:', this.tokens!.scope);
       
@@ -198,7 +198,7 @@ class SpotifyAuthService {
           }
         }
       );
-
+      
       // Update tokens (refresh_token might not be included in response)
       const newTokens = {
         ...this.tokens,
@@ -208,7 +208,7 @@ class SpotifyAuthService {
       this.tokens = newTokens;
       this.tokenExpiry = Date.now() + (newTokens.expires_in * 1000);
       this.storeTokens(newTokens);
-      
+
       console.log('✅ Spotify tokens refreshed successfully');
       return true;
     } catch (error: any) {

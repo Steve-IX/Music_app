@@ -66,7 +66,7 @@ class SpotifyPlayerService {
     window.onSpotifyWebPlaybackSDKReady = () => {
       console.log('🎵 Spotify Web Playback SDK ready');
       this.isSdkLoaded = true;
-      this.initializePlayer();
+        this.initializePlayer();
     };
   }
 
@@ -147,7 +147,7 @@ class SpotifyPlayerService {
         this.setState({ 
           deviceId: device_id,
           loading: false,
-          error: null
+          error: null 
         });
         if (this.callbacks.onLoad) this.callbacks.onLoad();
       });
@@ -170,7 +170,7 @@ class SpotifyPlayerService {
         const position = state.position;
         const duration = state.duration;
 
-        this.setState({
+        this.setState({ 
           isPlaying,
           currentTime: Math.floor(position / 1000),
           duration: Math.floor(duration / 1000),
@@ -196,8 +196,8 @@ class SpotifyPlayerService {
         if (success) {
           console.log('🎉 Spotify Web Playback SDK ready! You can now play tracks in-site.');
           this.isInitialized = true;
-        } else {
-          console.error('❌ Failed to connect to Spotify player');
+      } else {
+        console.error('❌ Failed to connect to Spotify player');
           this.setState({ error: 'Failed to connect to Spotify player' });
         }
         resolve();
@@ -295,7 +295,7 @@ class SpotifyPlayerService {
 
   async loadTrackFromUrl(url: string): Promise<void> {
     try {
-      const trackId = this.extractTrackId(url);
+    const trackId = this.extractTrackId(url);
       if (!trackId) {
         throw new Error('Invalid Spotify URL');
       }
@@ -339,7 +339,7 @@ class SpotifyPlayerService {
           throw new Error('Authentication expired');
         } else if (response.status === 404) {
           throw new Error('Track not available');
-        } else {
+    } else {
           throw new Error(error.error?.message || 'Failed to play track');
         }
       }

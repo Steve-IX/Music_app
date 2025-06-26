@@ -58,27 +58,15 @@ class YouTubePlayerService {
       return;
     }
 
-    // Create container for the player first
-    let playerContainer = document.getElementById('youtube-player');
-    if (!playerContainer) {
-      playerContainer = document.createElement('div');
-      playerContainer.id = 'youtube-player';
-      playerContainer.style.position = 'fixed';
-      playerContainer.style.bottom = '0';
-      playerContainer.style.right = '0';
-      playerContainer.style.width = '480px';
-      playerContainer.style.height = '270px';
-      playerContainer.style.opacity = '0';
-      playerContainer.style.pointerEvents = 'none';
-      playerContainer.style.zIndex = '-1';
-      document.body.appendChild(playerContainer);
-    }
-
     // Set up callback for when API is ready
     window.onYouTubeIframeAPIReady = () => {
       console.log('✅ YouTube IFrame API ready');
       this.isApiReady = true;
       this.initializePlayer();
+      if (this.pendingLoad) {
+        this.loadVideo(this.pendingLoad);
+        this.pendingLoad = null;
+      }
     };
 
     try {
@@ -87,10 +75,11 @@ class YouTubePlayerService {
       script.src = 'https://www.youtube.com/iframe_api';
       script.async = true;
       script.defer = true;
+      script.crossOrigin = 'anonymous';
       
       // Add error handling
-      script.onerror = () => {
-        console.error('❌ Failed to load YouTube IFrame API');
+      script.onerror = (error) => {
+        console.error('❌ Failed to load YouTube IFrame API:', error);
         this.setState({
           error: 'Failed to load YouTube player',
           loading: false
@@ -111,12 +100,17 @@ class YouTubePlayerService {
 
   // Initialize YouTube player
   private initializePlayer(): void {
-    if (!this.isApiReady) {
+    if (!this.isApiReady || !window.YT) {
       console.warn('YouTube API not ready yet');
       return;
     }
 
     try {
+      const playerContainer = document.getElementById('youtube-player');
+      if (!playerContainer) {
+        throw new Error('YouTube player container not found');
+      }
+
       // Get the current origin for postMessage
       const origin = window.location.origin;
       console.log('🎵 Initializing YouTube player with origin:', origin);
